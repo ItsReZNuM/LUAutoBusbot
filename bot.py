@@ -187,6 +187,9 @@ def handle_text(message):
     elif curr_step == "SEARCH_STATION":
         handle_station_search(chat_id, text)
         return
+    elif curr_step == "SEARCH_FAV_STATION":
+        handle_fav_station_search(chat_id, text)
+        return
     elif curr_step == "SET_AUTO_TIME":
         handle_set_auto_time(chat_id, text)
         return
@@ -417,12 +420,112 @@ def callback_fav_pick_type(call):
         "stations": stations
     }
 
+    # Fetch existing favorites to avoid showing duplicates
+    existing_favs = database.get_favorites(chat_id, st_type)
+    fav_ids = {f["station_id"] for f in existing_favs}
+
     markup = types.InlineKeyboardMarkup(row_width=1)
-    for st in stations[:12]:
+    
+    # Show first 8 non-favorite stations
+    non_fav = [s for s in stations if s["id"] not in fav_ids]
+    display_list = non_fav[:8] if non_fav else stations[:8]
+    for st in display_list:
         markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"save_fav:{st_type}:{st['id']}"))
 
+    # Search & All Stations buttons
+    markup.add(types.InlineKeyboardButton("🔍 جستجوی ایستگاه با تایپ نام", callback_data=f"fav_search_st:{st_type}"))
+    markup.add(types.InlineKeyboardButton("📜 نمایش تمام ایستگاه‌ها (صفحه‌بندی)", callback_data=f"fav_all_st:{st_type}:0"))
     markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="fav_add_start"))
-    bot.edit_message_text("ایستگاه مورد نظر را جهت افزودن انتخاب کنید:", chat_id, call.message.message_id, reply_markup=markup)
+
+    dir_text = "رفت" if st_type == "go" else "برگشت"
+    bot.edit_message_text(
+        f"📍 *ایستگاه‌های پیشنهادی {dir_text}:*\n"
+        "برای مشاهده یا پیدا کردن هر ایستگاهی، از گزینه‌های زیر استفاده کنید:",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("fav_all_st:"))
+def callback_fav_all_stations(call):
+    chat_id = call.message.chat.id
+    _, station_type, page_str = call.data.split(":")
+    page = int(page_str)
+    page_size = 7
+
+    state = user_states.get(chat_id, {})
+    stations = state.get("stations", [])
+    if not stations:
+        client = get_client(chat_id)
+        ok, stations = client.get_stations(station_type)
+        if ok:
+            state["stations"] = stations
+            state["station_type"] = station_type
+
+    total_pages = (len(stations) + page_size - 1) // page_size
+    current_page_items = stations[page * page_size:(page + 1) * page_size]
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for st in current_page_items:
+        markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"save_fav:{station_type}:{st['id']}"))
+
+    nav_btns = []
+    if page > 0:
+        nav_btns.append(types.InlineKeyboardButton("⬅️ قبلی", callback_data=f"fav_all_st:{station_type}:{page-1}"))
+    if page < total_pages - 1:
+        nav_btns.append(types.InlineKeyboardButton("بعدی ➡️", callback_data=f"fav_all_st:{station_type}:{page+1}"))
+    if nav_btns:
+        markup.row(*nav_btns)
+
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست اصلی", callback_data=f"fav_pick_type:{station_type}"))
+
+    dir_text = "رفت" if station_type == "go" else "برگشت"
+    bot.edit_message_text(
+        f"📜 *تمام ایستگاه‌های {dir_text} (صفحه {page+1} از {total_pages}):*\nبرای افزودن روی ایستگاه بزنید:",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("fav_search_st:"))
+def callback_fav_search_st(call):
+    chat_id = call.message.chat.id
+    station_type = call.data.split(":")[1]
+    if chat_id not in user_states:
+        user_states[chat_id] = {}
+    user_states[chat_id]["step"] = "SEARCH_FAV_STATION"
+    user_states[chat_id]["station_type"] = station_type
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔙 انصراف و بازگشت", callback_data=f"fav_pick_type:{station_type}"))
+    bot.edit_message_text(
+        "🔍 لطفاً نام ایستگاه مورد نظر برای افزودن به نشان‌شده‌ها را ارسال کنید (مثلاً: `مصلی` یا `کشاورزی` یا `کوی`):",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+def handle_fav_station_search(chat_id, query_text):
+    state = user_states.get(chat_id, {})
+    station_type = state.get("station_type", "go")
+    stations = state.get("stations", [])
+    if not stations:
+        client = get_client(chat_id)
+        ok, stations = client.get_stations(station_type)
+        if ok:
+            state["stations"] = stations
+
+    matched = [s for s in stations if query_text in s["name"]]
+    if not matched:
+        bot.send_message(chat_id, f"نتیجه‌ای برای «{query_text}» یافت نشد. لطفاً نام دیگری را ارسال کنید:")
+        return
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for st in matched[:10]:
+        markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"save_fav:{station_type}:{st['id']}"))
+
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست علاقه‌مندی‌ها", callback_data=f"fav_pick_type:{station_type}"))
+    bot.send_message(chat_id, f"🔍 نتایج جستجو برای *«{query_text}»:*\nبرای افزودن روی ایستگاه بزنید:", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("save_fav:"))
 def callback_save_fav(call):
@@ -430,11 +533,14 @@ def callback_save_fav(call):
     _, st_type, st_id = call.data.split(":")
     state = user_states.get(chat_id, {})
     stations = state.get("stations", [])
-    st_info = next((s for s in stations if s["id"] == st_id), None)
+    if not stations:
+        client = get_client(chat_id)
+        ok, stations = client.get_stations(st_type)
 
+    st_info = next((s for s in stations if s["id"] == st_id), None)
     if st_info:
         database.add_favorite(chat_id, st_type, st_id, st_info["station_name"], st_info["route_name"])
-        bot.answer_callback_query(call.id, "ایستگاه به علاقه‌مندی‌ها اضافه شد! ⭐")
+        bot.answer_callback_query(call.id, f"ایستگاه {st_info['station_name']} اضافه شد! ⭐")
 
     bot.delete_message(chat_id, call.message.message_id)
     show_favorites_menu(chat_id)
