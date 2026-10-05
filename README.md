@@ -71,15 +71,25 @@ chmod +x run_bot.sh
 ./run_bot.sh
 ```
 
-### ۴. متغیرهای محیطی اختیاری (در صورت لزوم)
-اگر سرور شما در خارج از کشور قرار دارد و سامانه دانشگاه روی اینترنت بین‌الملل مسدود است، یا برای دسترسی به تلگرام در ایران نیاز به پروکسی دارید:
+### ۴. تنظیم فایل متغیرهای محیطی (.env)
+کافیست فایل نمونه `.env.example` را کپی کرده و تنظیمات دلخواه را در فایل `.env` وارد کنید:
 ```bash
-export TELEGRAM_BOT_TOKEN="YOUR_BOT_TOKEN"
-export TELEGRAM_ADMIN_CHAT_ID="YOUR_CHAT_ID"
-# پروکسی تلگرام (در صورت نیاز):
-# export TELEGRAM_PROXY="socks5://127.0.0.1:10808"
-# پروکسی دسترسی به سایت دانشگاه در صورت خارج بودن سرور از ایران:
-# export IRAN_PROXY="http://user:pass@iran_proxy_ip:port"
+cp .env.example .env
+nano .env
+```
+نمونه محتوای فایل `.env`:
+```env
+# توکن ربات تلگرام دریافتی از BotFather
+TELEGRAM_BOT_TOKEN="8959183882:AAEBWzQYJgDgsSK8pqdKNSedJt5x-Lo3Xh0"
+
+# شناسه عددی ادمین
+TELEGRAM_ADMIN_CHAT_ID="6728527154"
+
+# پروکسی اتصال به تلگرام (در صورت نیاز در ایران)
+TELEGRAM_PROXY="http://127.0.0.1:10808"
+
+# پروکسی سامانه دانشگاه (فقط در صورتی که سرور خارج از کشور است)
+IRAN_PROXY=""
 ```
 
 ### ۵. راه‌اندازی به صورت سرویس دائمی سیستم‌عامل (Systemd Service)
