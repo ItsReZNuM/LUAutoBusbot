@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 import time
@@ -706,16 +707,23 @@ def handle_station_search(chat_id, query_text):
     bot.send_message(chat_id, f"🔍 نتایج جستجو برای *«{query_text}»:*", reply_markup=markup)
 
 def extract_time_from_slot(slot_label, slot_val):
-    m = re.search(r"(\d{1,2}[:_]\d{2})", slot_label)
-    if m:
-        return m.group(1).replace("_", ":")
-    m2 = re.search(r"(\d{1,2}[:_]\d{2})", slot_val)
-    if m2:
-        return m2.group(1).replace("_", ":")
-    parts = slot_val.split("_")
-    if len(parts) >= 2 and parts[-2].isdigit() and parts[-1].isdigit():
-        return f"{parts[-2]}:{parts[-1]}"
-    return slot_label[:15]
+    if not slot_label:
+        slot_label = ""
+    if not slot_val:
+        slot_val = ""
+    try:
+        m = re.search(r"(\d{1,2}[:_]\d{2})", slot_label)
+        if m:
+            return m.group(1).replace("_", ":")
+        m2 = re.search(r"(\d{1,2}[:_]\d{2})", slot_val)
+        if m2:
+            return m2.group(1).replace("_", ":")
+        parts = slot_val.split("_")
+        if len(parts) >= 2 and parts[-2].isdigit() and parts[-1].isdigit():
+            return f"{parts[-2]}:{parts[-1]}"
+    except Exception:
+        pass
+    return slot_label[:15] if slot_label else slot_val[:15]
 
 def build_slots_keyboard(chat_id):
     state = user_states.get(chat_id, {})
@@ -764,6 +772,13 @@ def callback_selected_station(call):
     _, station_type, station_id = call.data.split(":")
 
     state = user_states.get(chat_id, {})
+    if not state.get("date_slug"):
+        client = get_client(chat_id)
+        ok_p, _, tabs, _ = client.get_reserve_page()
+        if tabs:
+            state["date_slug"] = tabs[-1]["slug"]
+            state["date_label"] = tabs[-1]["label"]
+
     stations = state.get(f"{station_type}_stations", [])
     st_info = next((s for s in stations if s["id"] == station_id), None)
     st_name = st_info["station_name"] if st_info else station_id
@@ -806,49 +821,56 @@ def callback_selected_station(call):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("tgl_slot:"))
 def callback_toggle_slot(call):
     chat_id = call.message.chat.id
-    idx = int(call.data.split(":")[1])
+    try:
+        idx = int(call.data.split(":")[1])
 
-    state = user_states.get(chat_id, {})
-    slots = state.get("current_slots", [])
-    if idx < 0 or idx >= len(slots):
-        bot.answer_callback_query(call.id, "خطا در بازیابی ساعت.")
-        return
+        state = user_states.get(chat_id, {})
+        slots = state.get("current_slots", [])
+        if idx < 0 or idx >= len(slots):
+            bot.answer_callback_query(call.id, "خطا در بازیابی ساعت.")
+            return
 
-    slot = slots[idx]
-    st_type = state.get("current_station_type", "go")
-    st_id = state.get("current_station_id", "")
-    st_name = state.get("current_station_name", "")
-    route_name = state.get("current_route_name", "")
-    date_slug = state.get("date_slug", "")
-    date_label = state.get("date_label", date_slug)
+        slot = slots[idx]
+        st_type = state.get("current_station_type", "go")
+        st_id = state.get("current_station_id", "")
+        st_name = state.get("current_station_name", "")
+        route_name = state.get("current_route_name", "")
+        date_slug = state.get("date_slug", "")
+        date_label = state.get("date_label", date_slug)
 
-    if "cart" not in state:
-        state["cart"] = []
+        if "cart" not in state:
+            state["cart"] = []
 
-    slot_key = f"{date_slug}_{st_type}_{st_id}_{slot['value']}"
-    time_str = extract_time_from_slot(slot["label"], slot["value"])
+        slot_key = f"{date_slug}_{st_type}_{st_id}_{slot['value']}"
+        time_str = extract_time_from_slot(slot["label"], slot["value"])
 
-    existing_idx = next((i for i, item in enumerate(state["cart"]) if item["id"] == slot_key), None)
-    if existing_idx is not None:
-        state["cart"].pop(existing_idx)
-        bot.answer_callback_query(call.id, f"ساعت {time_str} از انتخاب‌ها برداشته شد.")
-    else:
-        state["cart"].append({
-            "id": slot_key,
-            "date_slug": date_slug,
-            "date_label": date_label,
-            "station_type": st_type,
-            "station_id": st_id,
-            "station_name": st_name,
-            "route_name": route_name,
-            "slot_val": slot["value"],
-            "slot_label": slot["label"],
-            "time_str": time_str
-        })
-        bot.answer_callback_query(call.id, f"ساعت {time_str} انتخاب شد ✅")
+        existing_idx = next((i for i, item in enumerate(state["cart"]) if item["id"] == slot_key), None)
+        if existing_idx is not None:
+            state["cart"].pop(existing_idx)
+            bot.answer_callback_query(call.id, f"ساعت {time_str} از انتخاب‌ها برداشته شد.")
+        else:
+            state["cart"].append({
+                "id": slot_key,
+                "date_slug": date_slug,
+                "date_label": date_label,
+                "station_type": st_type,
+                "station_id": st_id,
+                "station_name": st_name,
+                "route_name": route_name,
+                "slot_val": slot["value"],
+                "slot_label": slot["label"],
+                "time_str": time_str
+            })
+            bot.answer_callback_query(call.id, f"ساعت {time_str} انتخاب شد ✅")
 
-    markup = build_slots_keyboard(chat_id)
-    bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+        markup = build_slots_keyboard(chat_id)
+        try:
+            bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+        except Exception:
+            pass
+    except Exception as e:
+        logger.error(f"Error in callback_toggle_slot: {e}", exc_info=True)
+        bot.answer_callback_query(call.id, f"خطا: {e}", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data == "proceed_to_return")
 def callback_proceed_to_return(call):
