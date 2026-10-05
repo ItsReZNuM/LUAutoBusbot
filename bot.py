@@ -126,8 +126,8 @@ def cmd_start(message):
 def cmd_help(message):
     help_text = (
         "📖 *راهنمای جامع ربات رزرواسیون اتوبوس دانشگاه:*\n\n"
-        "🔹 *۱. رزرو دستی سرویس (/reserve)*\n"
-        "با انتخاب این گزینه، روزهای باز سامانه به شما نمایش داده می‌شود. می‌توانید نوع سرویس (رفت/برگشت/هردو)، ایستگاه دقیق همراه با مسیر، و ساعت‌های موجود را مشاهده و در لحظه رزرو کنید.\n\n"
+        "🔹 *۱. رزرو سرویس (تک یا چندتایی هم‌زمان) (/reserve)*\n"
+        "امکان انتخاب هم‌زمان چندین ساعت (مثلاً ساعت‌های ۱۵، ۱۶ و ۱۷ مصلی به صورت یکجا) یا افزودن چند مسیر رفت و برگشت به یک سبد و رزرو نهایی همه آن‌ها در یک مرحله بدون نیاز به رزرو دونه‌دونه.\n\n"
         "🔹 *۲. علاقه‌مندی‌ها (/favorites)*\n"
         "مسیرهایی که مکرراً استفاده می‌کنید را به لیست علاقه‌مندی‌ها اضافه کنید تا در رزرو دستی و خودکار همیشه بالاتر از همه و دم‌دست باشند.\n\n"
         "🔹 *۳. رزرو خودکار با زمان‌بندی (/settings)*\n"
@@ -604,6 +604,11 @@ def show_station_picker(chat_id, message_id, station_type="go", prompt="انتخ
     for st in non_fav_stations[:8]:
         markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"sel_st:{station_type}:{st['id']}"))
 
+    # Cart preview button if items exist
+    cart = state.get("cart", [])
+    if cart:
+        markup.add(types.InlineKeyboardButton(f"📋 مشاهده سبد رزرو ({len(cart)} مورد)", callback_data="view_cart_confirm"))
+
     # Search and View All buttons
     markup.add(types.InlineKeyboardButton("🔍 جستجوی ایستگاه با تایپ نام", callback_data=f"search_st:{station_type}"))
     markup.add(types.InlineKeyboardButton("📜 نمایش تمام ایستگاه‌ها (صفحه‌بندی)", callback_data=f"all_st:{station_type}:0"))
@@ -700,6 +705,59 @@ def handle_station_search(chat_id, query_text):
     markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست ایستگاه‌ها", callback_data=f"back_quick_st:{station_type}"))
     bot.send_message(chat_id, f"🔍 نتایج جستجو برای *«{query_text}»:*", reply_markup=markup)
 
+def extract_time_from_slot(slot_label, slot_val):
+    m = re.search(r"(\d{1,2}[:_]\d{2})", slot_label)
+    if m:
+        return m.group(1).replace("_", ":")
+    m2 = re.search(r"(\d{1,2}[:_]\d{2})", slot_val)
+    if m2:
+        return m2.group(1).replace("_", ":")
+    parts = slot_val.split("_")
+    if len(parts) >= 2 and parts[-2].isdigit() and parts[-1].isdigit():
+        return f"{parts[-2]}:{parts[-1]}"
+    return slot_label[:15]
+
+def build_slots_keyboard(chat_id):
+    state = user_states.get(chat_id, {})
+    slots = state.get("current_slots", [])
+    cart = state.get("cart", [])
+    st_type = state.get("current_station_type", "go")
+    st_id = state.get("current_station_id", "")
+    date_slug = state.get("date_slug", "")
+    service_type = state.get("type", "go")
+
+    cart_ids = {item["id"] for item in cart}
+    markup = types.InlineKeyboardMarkup(row_width=1)
+
+    for idx, slot in enumerate(slots):
+        slot_id = f"{date_slug}_{st_type}_{st_id}_{slot['value']}"
+        is_selected = slot_id in cart_ids
+        icon = "✅" if is_selected else "▫️"
+        label = f"{icon} {slot['label']}"
+        markup.add(types.InlineKeyboardButton(label[:40], callback_data=f"tgl_slot:{idx}"))
+
+    cart_count = len(cart)
+    if cart_count > 0:
+        markup.add(types.InlineKeyboardButton(f"🚀 تایید و ثبت نهایی ({cart_count} مورد)", callback_data="view_cart_confirm"))
+
+    if service_type == "both" and st_type == "go":
+        markup.add(types.InlineKeyboardButton("➡️ مرحله بعد: انتخاب سرویس برگشت", callback_data="proceed_to_return"))
+
+    markup.add(types.InlineKeyboardButton("➕ افزودن سرویس / ایستگاه دیگر", callback_data="cart_add_more"))
+
+    # Quick toggle favorite button
+    is_fav = database.is_favorite(chat_id, st_type, st_id)
+    fav_btn = (
+        types.InlineKeyboardButton("⭐ افزودن این ایستگاه به نشان‌شده‌ها", callback_data=f"add_fav_quick:{st_type}:{st_id}")
+        if not is_fav else
+        types.InlineKeyboardButton("❌ حذف از نشان‌شده‌ها", callback_data=f"del_fav_quick:{st_type}:{st_id}")
+    )
+    markup.add(fav_btn)
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست ایستگاه‌ها", callback_data=f"back_quick_st:{st_type}"))
+    markup.add(types.InlineKeyboardButton("🏠 انصراف و بازگشت به منوی اصلی", callback_data="back_to_main"))
+
+    return markup
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("sel_st:"))
 def callback_selected_station(call):
     chat_id = call.message.chat.id
@@ -708,13 +766,22 @@ def callback_selected_station(call):
     state = user_states.get(chat_id, {})
     stations = state.get(f"{station_type}_stations", [])
     st_info = next((s for s in stations if s["id"] == station_id), None)
-    st_name = st_info["name"] if st_info else station_id
+    st_name = st_info["station_name"] if st_info else station_id
+    route_name = st_info["route_name"] if st_info else ""
+    full_name = st_info["name"] if st_info else st_name
 
-    state[f"{station_type}_station_id"] = station_id
-    state[f"{station_type}_station_name"] = st_name
+    state["current_station_type"] = station_type
+    state["current_station_id"] = station_id
+    state["current_station_name"] = st_name
+    state["current_route_name"] = route_name
+    state["current_full_name"] = full_name
+    if "cart" not in state:
+        state["cart"] = []
 
-    date_slug = state["date_slug"]
-    bot.edit_message_text(f"⏳ در حال استعلام ساعت‌های فعال برای:\n*{st_name}*...", chat_id, call.message.message_id)
+    date_slug = state.get("date_slug", "")
+    date_label = state.get("date_label", date_slug)
+
+    bot.edit_message_text(f"⏳ در حال استعلام ساعت‌های فعال برای:\n*{full_name}*...", chat_id, call.message.message_id)
 
     client = get_client(chat_id)
     ok, slots = client.get_time_slots(date_slug, station_id, station_type)
@@ -724,29 +791,115 @@ def callback_selected_station(call):
         bot.edit_message_text("❌ هیچ زمان خالی برای این ایستگاه در تاریخ انتخاب شده یافت نشد.", chat_id, call.message.message_id, reply_markup=markup)
         return
 
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for slot in slots:
-        label = slot["label"]
-        markup.add(types.InlineKeyboardButton(f"⏰ {label}", callback_data=f"sel_slot:{station_type}:{slot['value']}"))
+    state["current_slots"] = slots
+    markup = build_slots_keyboard(chat_id)
 
-    # Quick toggle favorite button
-    is_fav = database.is_favorite(chat_id, station_type, station_id)
-    fav_toggle_btn = (
-        types.InlineKeyboardButton("⭐ افزودن این ایستگاه به علاقه‌مندی‌ها", callback_data=f"add_fav_quick:{station_type}:{station_id}")
-        if not is_fav else
-        types.InlineKeyboardButton("❌ حذف از علاقه‌مندی‌ها", callback_data=f"del_fav_quick:{station_type}:{station_id}")
+    dir_title = "رفت" if station_type == "go" else "برگشت"
+    text = (
+        f"🕒 *انتخاب ساعت سرویس {dir_title}:*\n"
+        f"📍 ایستگاه: *{full_name}*\n"
+        f"📅 تاریخ: *{date_label}*\n\n"
+        "💡 *نکته:* می‌توانید یک یا چند ساعت را هم‌زمان علامت بزنید (مثلاً ۱۵، ۱۶، ۱۷) و همه را با هم رزرو کنید:"
     )
-    markup.add(fav_toggle_btn)
-    markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست ایستگاه‌ها", callback_data=f"back_quick_st:{station_type}"))
+    bot.edit_message_text(text, chat_id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("tgl_slot:"))
+def callback_toggle_slot(call):
+    chat_id = call.message.chat.id
+    idx = int(call.data.split(":")[1])
+
+    state = user_states.get(chat_id, {})
+    slots = state.get("current_slots", [])
+    if idx < 0 or idx >= len(slots):
+        bot.answer_callback_query(call.id, "خطا در بازیابی ساعت.")
+        return
+
+    slot = slots[idx]
+    st_type = state.get("current_station_type", "go")
+    st_id = state.get("current_station_id", "")
+    st_name = state.get("current_station_name", "")
+    route_name = state.get("current_route_name", "")
+    date_slug = state.get("date_slug", "")
+    date_label = state.get("date_label", date_slug)
+
+    if "cart" not in state:
+        state["cart"] = []
+
+    slot_key = f"{date_slug}_{st_type}_{st_id}_{slot['value']}"
+    time_str = extract_time_from_slot(slot["label"], slot["value"])
+
+    existing_idx = next((i for i, item in enumerate(state["cart"]) if item["id"] == slot_key), None)
+    if existing_idx is not None:
+        state["cart"].pop(existing_idx)
+        bot.answer_callback_query(call.id, f"ساعت {time_str} از انتخاب‌ها برداشته شد.")
+    else:
+        state["cart"].append({
+            "id": slot_key,
+            "date_slug": date_slug,
+            "date_label": date_label,
+            "station_type": st_type,
+            "station_id": st_id,
+            "station_name": st_name,
+            "route_name": route_name,
+            "slot_val": slot["value"],
+            "slot_label": slot["label"],
+            "time_str": time_str
+        })
+        bot.answer_callback_query(call.id, f"ساعت {time_str} انتخاب شد ✅")
+
+    markup = build_slots_keyboard(chat_id)
+    bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data == "proceed_to_return")
+def callback_proceed_to_return(call):
+    chat_id = call.message.chat.id
+    user_states[chat_id]["step"] = "SELECT_RET_STATION"
+    show_station_picker(chat_id, call.message.message_id, station_type="return", prompt="ایستگاه مقصد (برگشت)")
+
+@bot.callback_query_handler(func=lambda call: call.data == "cart_add_more")
+def callback_cart_add_more(call):
+    chat_id = call.message.chat.id
+    state = user_states.get(chat_id, {})
+    cart = state.get("cart", [])
+    cart_count = len(cart)
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("🟢 سرویس رفت دیگر", callback_data="sel_type:go"),
+        types.InlineKeyboardButton("🔵 سرویس برگشت دیگر", callback_data="sel_type:return")
+    )
+    if cart_count > 0:
+        markup.add(types.InlineKeyboardButton(f"📋 مشاهده سبد رزرو ({cart_count} مورد)", callback_data="view_cart_confirm"))
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به ساعت‌های قبلی", callback_data="back_to_slots"))
 
     bot.edit_message_text(
-        f"🕒 *انتخاب ساعت سرویس { 'رفت' if station_type == 'go' else 'برگشت' }:*\n"
-        f"ایستگاه انتخابی: *{st_name}*\n\n"
-        "یکی از ساعت‌های موجود را انتخاب کنید:",
+        f"➕ *افزودن مسیر / ایستگاه دیگر به سبد رزرو:*\n"
+        f"در حال حاضر *{cart_count} مورد* در سبد شما قرار دارد.\n\n"
+        "جهت سرویس جدید را انتخاب کنید:",
         chat_id,
         call.message.message_id,
         reply_markup=markup
     )
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_slots")
+def callback_back_to_slots(call):
+    chat_id = call.message.chat.id
+    state = user_states.get(chat_id, {})
+    st_type = state.get("current_station_type", "go")
+    st_id = state.get("current_station_id")
+    if st_id:
+        call.data = f"sel_st:{st_type}:{st_id}"
+        callback_selected_station(call)
+    else:
+        show_station_picker(chat_id, call.message.message_id, station_type=st_type)
+
+@bot.callback_query_handler(func=lambda call: call.data == "cart_clear")
+def callback_cart_clear(call):
+    chat_id = call.message.chat.id
+    state = user_states.get(chat_id, {})
+    state["cart"] = []
+    bot.answer_callback_query(call.id, "سبد رزرو خالی شد.")
+    callback_back_to_slots(call)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("add_fav_quick:") or call.data.startswith("del_fav_quick:"))
 def callback_toggle_fav_quick(call):
@@ -759,117 +912,122 @@ def callback_toggle_fav_quick(call):
 
     if action == "add_fav_quick" and st_info:
         database.add_favorite(chat_id, st_type, st_id, st_info["station_name"], st_info["route_name"])
-        bot.answer_callback_query(call.id, "ایستگاه به علاقه‌مندی‌ها اضافه شد! ⭐")
+        bot.answer_callback_query(call.id, "ایستگاه به نشان‌شده‌ها اضافه شد! ⭐")
     elif action == "del_fav_quick":
         database.remove_favorite(chat_id, st_type, st_id)
-        bot.answer_callback_query(call.id, "از علاقه‌مندی‌ها حذف شد.")
+        bot.answer_callback_query(call.id, "از نشان‌شده‌ها حذف شد.")
 
-    # Refresh current station view
-    call.data = f"sel_st:{st_type}:{st_id}"
-    callback_selected_station(call)
+    markup = build_slots_keyboard(chat_id)
+    bot.edit_message_reply_markup(chat_id, call.message.message_id, reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_slot:"))
-def callback_selected_slot(call):
+@bot.callback_query_handler(func=lambda call: call.data == "view_cart_confirm")
+def callback_view_cart_confirm(call):
     chat_id = call.message.chat.id
-    _, station_type, slot_val = call.data.split(":")
+    show_cart_confirmation(chat_id, call.message.message_id)
 
+def show_cart_confirmation(chat_id, message_id=None):
     state = user_states.get(chat_id, {})
-    state[f"{station_type}_slot_val"] = slot_val
-
-    service_type = state.get("type", "go")
-    if service_type == "both" and station_type == "go":
-        state["step"] = "SELECT_RET_STATION"
-        show_station_picker(chat_id, call.message.message_id, station_type="return", prompt="ایستگاه مقصد (برگشت)")
+    cart = state.get("cart", [])
+    if not cart:
+        bot.send_message(chat_id, "⚠️ هیچ سرویسی در سبد انتخاب نشده است.")
         return
 
-    show_reservation_confirmation(chat_id, call.message.message_id)
+    total = len(cart)
+    text = f"📋 *پیش‌نمایش رزروهای انتخابی شما ({total} مورد):*\n\n"
+    for i, item in enumerate(cart, 1):
+        type_icon = "🟢 رفت" if item["station_type"] == "go" else "🔵 برگشت"
+        route_text = f" (مسیر: {item['route_name']})" if item.get("route_name") else ""
+        text += (
+            f"*{i}.* {type_icon}: *{item['station_name']}*{route_text}\n"
+            f"   📅 {item['date_label']} | ⏰ ساعت: *{item['time_str']}*\n\n"
+        )
 
-def show_reservation_confirmation(chat_id, message_id):
-    state = user_states.get(chat_id, {})
-    date_label = state.get("date_label")
-    service_type = state.get("type")
-
-    summary = f"📋 *پیش‌نمایش درخواست رزرو:*\n\n"
-    summary += f"📅 **تاریخ:** {date_label}\n"
-
-    if service_type in ["go", "both"]:
-        st_name = state.get("go_station_name", "")
-        slot_val = state.get("go_slot_val", "")
-        time_m = slot_val.split("_")[-3:]
-        time_str = f"{time_m[0]}:{time_m[1]}" if len(time_m) >= 2 else slot_val
-        summary += f"🟢 **رفت:** {st_name}\n⏰ ساعت رفت: *{time_str}*\n"
-
-    if service_type in ["return", "both"]:
-        st_name = state.get("return_station_name", "")
-        slot_val = state.get("return_slot_val", "")
-        time_m = slot_val.split("_")[-3:]
-        time_str = f"{time_m[0]}:{time_m[1]}" if len(time_m) >= 2 else slot_val
-        summary += f"🔵 **برگشت:** {st_name}\n⏰ ساعت برگشت: *{time_str}*\n"
-
-    summary += "\nآیا مایل به ثبت نهایی و رزرو هستید؟"
+    text += "⚠️ آیا مایل به ثبت نهایی و رزرو همه موارد فوق در سامانه وانابوم هستید؟"
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
-        types.InlineKeyboardButton("✅ تایید و ثبت رزرو", callback_data="confirm_reserve_submit"),
-        types.InlineKeyboardButton("❌ انصراف", callback_data="cancel_reserve_flow")
+        types.InlineKeyboardButton(f"✅ تایید و ثبت همه ({total} مورد)", callback_data="submit_batch_reserve"),
+        types.InlineKeyboardButton("🗑 خالی کردن سبد", callback_data="cart_clear")
     )
-    markup.add(types.InlineKeyboardButton("🔙 بازگشت و اصلاح انتخاب", callback_data="back_to_type_select"))
+    markup.add(
+        types.InlineKeyboardButton("➕ افزودن سرویس دیگر", callback_data="cart_add_more"),
+        types.InlineKeyboardButton("🔙 بازگشت به انتخاب ساعت", callback_data="back_to_slots")
+    )
 
     if message_id:
-        bot.edit_message_text(summary, chat_id, message_id, reply_markup=markup)
+        bot.edit_message_text(text, chat_id, message_id, reply_markup=markup)
     else:
-        bot.send_message(chat_id, summary, reply_markup=markup)
+        bot.send_message(chat_id, text, reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data == "cancel_reserve_flow")
-def callback_cancel_reserve_flow(call):
-    user_states.pop(call.message.chat.id, None)
-    bot.edit_message_text("❌ عملیات رزرو لغو شد.", call.message.chat.id, call.message.message_id)
-
-@bot.callback_query_handler(func=lambda call: call.data == "confirm_reserve_submit")
-def callback_submit_reserve(call):
+@bot.callback_query_handler(func=lambda call: call.data == "submit_batch_reserve")
+def callback_submit_batch_reserve(call):
     chat_id = call.message.chat.id
     state = user_states.get(chat_id, {})
-    if not state:
-        bot.edit_message_text("⚠️ اطلاعات منقضی شده است. مجدداً رزرو را شروع کنید.", chat_id, call.message.message_id)
+    cart = state.get("cart", [])
+    if not cart:
+        bot.edit_message_text("⚠️ سبد رزرو خالی است.", chat_id, call.message.message_id)
         return
 
-    bot.edit_message_text("⏳ در حال ثبت رزرو در سامانه دانشگاه و کسر اعتبار...", chat_id, call.message.message_id)
-
-    date_slug = state.get("date_slug")
-    date_label = state.get("date_label")
-    go_station = state.get("go_station_id")
-    go_slot = state.get("go_slot_val")
-    ret_station = state.get("return_station_id")
-    ret_slot = state.get("return_slot_val")
+    total = len(cart)
+    bot.edit_message_text(f"⏳ در حال ثبت {total} مورد رزرو در سامانه وانابوم...\nلطفاً صبور باشید...", chat_id, call.message.message_id)
 
     client = get_client(chat_id)
-    ok, msg, new_booked = client.reserve(
-        date_slug=date_slug,
-        go_station=go_station,
-        go_slot=go_slot,
-        return_station=ret_station,
-        return_slot=ret_slot
-    )
+    results = []
 
-    user_states.pop(chat_id, None)
-    if ok:
-        success_text = (
-            f"🎉 **{msg}**\n\n"
-            f"📅 تاریخ: *{date_label}*\n"
+    for idx, item in enumerate(cart, 1):
+        if total > 1:
+            try:
+                bot.edit_message_text(
+                    f"⏳ در حال ثبت رزرو ({idx} از {total}):\n"
+                    f"*{item['station_name']} (ساعت {item['time_str']})*...",
+                    chat_id,
+                    call.message.message_id
+                )
+            except Exception:
+                pass
+
+        ok, msg = client.reserve_single(
+            date_slug=item["date_slug"],
+            station_type=item["station_type"],
+            station_id=item["station_id"],
+            slot_val=item["slot_val"]
         )
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        for b in new_booked:
-            success_text += f"• {b['info']}\n"
+        results.append({
+            "item": item,
+            "ok": ok,
+            "msg": msg
+        })
+        time.sleep(0.4)
+
+    # After loop, get newly booked trips to retrieve cancel IDs
+    _, _, _, updated_booked = client.get_reserve_page()
+
+    # Clear state
+    user_states.pop(chat_id, None)
+
+    success_count = sum(1 for r in results if r["ok"])
+    fail_count = total - success_count
+
+    report = "📋 *گزارش نهایی ثبت رزرو:*\n\n"
+    for i, res in enumerate(results, 1):
+        item = res["item"]
+        t_icon = "🟢 رفت" if item["station_type"] == "go" else "🔵 برگشت"
+        status_icon = "✅" if res["ok"] else "❌"
+        report += f"{status_icon} *{i}.* {t_icon}: *{item['station_name']}* (ساعت *{item['time_str']}*)\n   نتیجه: {res['msg']}\n\n"
+
+    report += f"📊 **مجموع:** {total} مورد | **موفق:** {success_count} ✅ | **ناموفق:** {fail_count} ❌\n"
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    if updated_booked:
+        report += "\nکلیدهای لغو سریع سرویس‌های فعال شما:"
+        for b in updated_booked[:5]:
             r_id = b.get("r_id")
             if r_id:
-                markup.add(types.InlineKeyboardButton(f"❌ لغو همین سرویس ({r_id})", callback_data=f"cancel_trip:{r_id}"))
+                markup.add(types.InlineKeyboardButton(f"❌ لغو {b['info'][:32]}", callback_data=f"cancel_trip:{r_id}"))
 
-        markup.add(types.InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="back_to_main"))
-        bot.edit_message_text(success_text, chat_id, call.message.message_id, reply_markup=markup)
-    else:
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔄 تلاش مجدد", callback_data="back_to_type_select"))
-        bot.edit_message_text(f"❌ **عدم موفقیت در رزرو:**\n{msg}", chat_id, call.message.message_id, reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="back_to_main"))
+
+    bot.edit_message_text(report, chat_id, call.message.message_id, reply_markup=markup)
 
 # ----------------- Auto Reserve Settings (Per User) -----------------
 

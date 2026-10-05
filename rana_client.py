@@ -1,5 +1,6 @@
 import re
 import json
+import time
 import logging
 import urllib.parse
 import requests
@@ -332,6 +333,65 @@ class RanaClient:
             return False, "خطای نامشخص در ثبت رزرو", []
         except Exception as e:
             return False, f"خطا در ثبت رزرو: {e}", []
+
+    def reserve_single(self, date_slug, station_type, station_id, slot_val):
+        """Submits a single slot reservation without re-fetching all booked trips."""
+        try:
+            url = f"{self.BASE_URL}/webapp/ssm/users/reserveStationSelectionReserve/{self.COMPANY_ID}"
+            date_dash = date_slug.replace("_", "-")
+
+            params = {}
+            if station_type == "go":
+                params[f"route_date_station_go[{date_slug}]"] = station_id
+                params[f"route_select[go][{date_dash}]"] = slot_val
+            else:
+                params[f"route_date_station_return[{date_slug}]"] = station_id
+                params[f"route_select[return][{date_dash}]"] = slot_val
+
+            reserve_data = urllib.parse.urlencode(params)
+            payload = {
+                "date_slug": date_slug,
+                "reserve_data": reserve_data
+            }
+
+            headers = self._headers(ajax=True)
+            headers["Accept"] = "application/json"
+
+            r = self.session.post(url, data=payload, headers=headers, timeout=15)
+
+            try:
+                res = r.json()
+                if res.get("status") or (res.get("data") and res.get("data", {}).get("date_slug")):
+                    return True, "رزرو با موفقیت انجام شد."
+                else:
+                    msg = res.get("message") or res.get("data", {}).get("message") or str(res)
+                    return False, f"پاسخ سایت: {msg}"
+            except Exception:
+                if r.status_code == 200:
+                    return True, "رزرو با موفقیت انجام شد."
+                return False, f"کد وضعیت سرور: {r.status_code}"
+        except Exception as e:
+            return False, f"خطای ارتباط با سرور: {e}"
+
+    def reserve_batch(self, items):
+        """
+        Submits multiple reservations sequentially.
+        items: list of dicts with keys: date_slug, station_type, station_id, slot_val
+        """
+        results = []
+        for item in items:
+            ok, msg = self.reserve_single(
+                date_slug=item["date_slug"],
+                station_type=item["station_type"],
+                station_id=item["station_id"],
+                slot_val=item["slot_val"]
+            )
+            results.append({"item": item, "ok": ok, "msg": msg})
+            time.sleep(0.4)
+
+        # After finishing batch, fetch the updated list of booked trips
+        _, _, _, updated_booked = self.get_reserve_page()
+        return results, updated_booked
 
     def cancel_reservation(self, r_id):
         """Cancels a booked trip."""
