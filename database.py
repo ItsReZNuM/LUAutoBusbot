@@ -63,6 +63,13 @@ def init_db():
     );
     """)
 
+    # Safe column migrations for existing databases
+    existing_cols = [c[1] for c in cursor.execute("PRAGMA table_info(user_settings)").fetchall()]
+    if "go_station_id" not in existing_cols:
+        cursor.execute("ALTER TABLE user_settings ADD COLUMN go_station_id TEXT DEFAULT ''")
+    if "return_station_id" not in existing_cols:
+        cursor.execute("ALTER TABLE user_settings ADD COLUMN return_station_id TEXT DEFAULT ''")
+
     conn.commit()
     conn.close()
     logger.info("Database initialized successfully.")
