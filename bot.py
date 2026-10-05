@@ -193,6 +193,12 @@ def handle_text(message):
     elif curr_step == "SET_AUTO_TIME":
         handle_set_auto_time(chat_id, text)
         return
+    elif curr_step == "SEARCH_DAY_STATION":
+        handle_day_station_search(chat_id, text)
+        return
+    elif curr_step == "SET_DAY_TIME":
+        handle_set_day_time_text(chat_id, text)
+        return
 
     if text == "🚌 رزرو سرویس جدید":
         start_manual_reserve(chat_id)
@@ -1157,44 +1163,167 @@ def callback_submit_batch_reserve(call):
 
     bot.edit_message_text(report, chat_id, call.message.message_id, reply_markup=markup)
 
-# ----------------- Auto Reserve Settings (Per User) -----------------
+# ----------------- Auto Reserve Settings (Per User Weekly Schedules) -----------------
 
-def show_auto_reserve_settings(chat_id):
+def show_auto_reserve_settings(chat_id, message_id=None):
     settings = database.get_user_settings(chat_id)
     enabled = settings.get("enabled", False)
     target_time = settings.get("target_time", "00:01")
-    go_st = settings.get("go_station_name") or "ثبت نشده"
-    go_t = settings.get("go_time") or "ثبت نشده"
-    ret_st = settings.get("return_station_name") or "ثبت نشده"
-    ret_t = settings.get("return_time") or "ثبت نشده"
+    daily = settings.get("daily_schedules", {})
 
     status_icon = "فعال ✅" if enabled else "غیرفعال ❌"
 
     text = (
-        "⚙️ *تنظیمات اختصاصی رزرو خودکار:*\n\n"
-        f"• وضعیت سیستم: *{status_icon}*\n"
-        f"• ساعت اجرای خودکار: *{target_time}*\n"
-        f"• ایستگاه رفت: *{go_st}* (ساعت {go_t})\n"
-        f"• ایستگاه برگشت: *{ret_st}* (ساعت {ret_t})\n\n"
-        "برای تغییر هر یک از موارد از گزینه‌های زیر استفاده کنید:"
+        "⚙️ *تنظیمات برنامه رزرو خودکار هفتگی (شنبه تا چهارشنبه):*\n\n"
+        f"• وضعیت کلی سیستم: *{status_icon}*\n"
+        f"• ساعت اجرای خودکار: *{target_time}* (شب قبل از هر روز)\n\n"
+        "📋 *خلاصه برنامه اختصاصی روزهای هفته:*\n"
     )
 
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    toggle_text = "🔴 غیرفعال‌سازی رزرو خودکار" if enabled else "🟢 فعال‌سازی رزرو خودکار"
+    for day in database.WEEKDAYS:
+        cfg = daily.get(day, {})
+        d_en = cfg.get("enabled", True)
+        d_status = "✅" if d_en else "❌ (غیرفعال)"
+        go_s = cfg.get("go_station_name")
+        go_t = cfg.get("go_time")
+        ret_s = cfg.get("return_station_name")
+        ret_t = cfg.get("return_time")
+
+        details = []
+        if go_s and go_t:
+            details.append(f"رفت: {go_s} ({go_t})")
+        if ret_s and ret_t:
+            details.append(f"برگشت: {ret_s} ({ret_t})")
+
+        detail_str = " | ".join(details) if details else "تنظیم‌نشده"
+        text += f"• **{day}:** {d_status} {detail_str}\n"
+
+    text += "\n💡 *برای تنظیم یا تغییر مسیر و ساعت هر روز، روی دکمه آن روز کلیک کنید:*"
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    day_btns = [
+        types.InlineKeyboardButton(f"🗓 {day}", callback_data=f"cfg_day:{day}")
+        for day in database.WEEKDAYS
+    ]
+    markup.add(*day_btns[:2])
+    markup.add(*day_btns[2:4])
+    markup.add(day_btns[4])
+
+    toggle_text = "🔴 غیرفعال‌سازی کلی رزرو خودکار" if enabled else "🟢 فعال‌سازی کلی رزرو خودکار"
     markup.add(
-        types.InlineKeyboardButton(toggle_text, callback_data="toggle_auto"),
-        types.InlineKeyboardButton("⏰ تغییر ساعت اجرای روزانه", callback_data="change_auto_time"),
-        types.InlineKeyboardButton("🟢 انتخاب ایستگاه/ساعت رفت خودکار", callback_data="set_auto_st:go"),
-        types.InlineKeyboardButton("🔵 انتخاب ایستگاه/ساعت برگشت خودکار", callback_data="set_auto_st:return"),
-        types.InlineKeyboardButton("⚡ اجرای آزمایشی رزرو خودکار (همین الان)", callback_data="test_auto_now"),
-        types.InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="back_to_main")
+        types.InlineKeyboardButton("⏰ تغییر ساعت اجرای شبانه", callback_data="change_auto_time"),
+        types.InlineKeyboardButton(toggle_text, callback_data="toggle_auto")
     )
-    bot.send_message(chat_id, text, reply_markup=markup)
+    markup.add(
+        types.InlineKeyboardButton("⚡ اجرای آزمایشی رزرو خودکار (همین الان)", callback_data="test_auto_now")
+    )
+    markup.add(types.InlineKeyboardButton("🏠 بازگشت به منوی اصلی", callback_data="back_to_main"))
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("set_auto_st:"))
-def callback_set_auto_station(call):
+    if message_id:
+        try:
+            bot.edit_message_text(text, chat_id, message_id, reply_markup=markup)
+        except Exception:
+            bot.send_message(chat_id, text, reply_markup=markup)
+    else:
+        bot.send_message(chat_id, text, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("cfg_day:"))
+def callback_cfg_day(call):
     chat_id = call.message.chat.id
-    st_type = call.data.split(":")[1]
+    day_name = call.data.split(":")[1]
+    show_day_detail_menu(chat_id, day_name, call.message.message_id)
+
+def show_day_detail_menu(chat_id, day_name, message_id):
+    cfg = database.get_day_schedule(chat_id, day_name)
+    settings = database.get_user_settings(chat_id)
+    target_time = settings.get("target_time", "00:01")
+
+    night_before_map = {
+        "شنبه": "جمعه‌شب",
+        "یکشنبه": "شنبه‌شب",
+        "دوشنبه": "یکشنبه‌شب",
+        "سه‌شنبه": "دوشنبه‌شب",
+        "چهارشنبه": "سه‌شنبه‌شب"
+    }
+    night_str = night_before_map.get(day_name, "شب قبل")
+
+    enabled = cfg.get("enabled", True)
+    status_icon = "فعال ✅" if enabled else "غیرفعال ❌"
+
+    go_name = cfg.get("go_station_name") or "ثبت نشده"
+    go_time = cfg.get("go_time") or "-"
+    ret_name = cfg.get("return_station_name") or "ثبت نشده"
+    ret_time = cfg.get("return_time") or "-"
+
+    text = (
+        f"🗓 *تنظیمات اختصاصی رزرو روز «{day_name}»:*\n"
+        f"*(رزرو این روز در {night_str} ساعت {target_time} ثبت خواهد شد)*\n\n"
+        f"• وضعیت رزرو این روز: *{status_icon}*\n"
+        f"🟢 **سرویس رفت:** {go_name} (ساعت {go_time})\n"
+        f"🔵 **سرویس برگشت:** {ret_name} (ساعت {ret_time})\n\n"
+        "برای تغییر ایستگاه یا ساعت از گزینه‌های زیر استفاده کنید:"
+    )
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    toggle_day_btn = (
+        types.InlineKeyboardButton("🔴 غیرفعال‌سازی این روز", callback_data=f"tgl_day_en:{day_name}")
+        if enabled else
+        types.InlineKeyboardButton("🟢 فعال‌سازی این روز", callback_data=f"tgl_day_en:{day_name}")
+    )
+    markup.add(toggle_day_btn)
+
+    markup.add(
+        types.InlineKeyboardButton("🟢 تنظیم سرویس رفت", callback_data=f"set_day_st:{day_name}:go"),
+        types.InlineKeyboardButton("🔵 تنظیم سرویس برگشت", callback_data=f"set_day_st:{day_name}:return")
+    )
+
+    clean_btns = []
+    if cfg.get("go_station_name"):
+        clean_btns.append(types.InlineKeyboardButton("🗑 حذف رفت", callback_data=f"clr_day_slot:{day_name}:go"))
+    if cfg.get("return_station_name"):
+        clean_btns.append(types.InlineKeyboardButton("🗑 حذف برگشت", callback_data=f"clr_day_slot:{day_name}:return"))
+    if clean_btns:
+        markup.row(*clean_btns)
+
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست روزها", callback_data="back_to_settings"))
+
+    bot.edit_message_text(text, chat_id, message_id, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("tgl_day_en:"))
+def callback_toggle_day_en(call):
+    chat_id = call.message.chat.id
+    day_name = call.data.split(":")[1]
+    cfg = database.get_day_schedule(chat_id, day_name)
+    cfg["enabled"] = not cfg.get("enabled", True)
+    database.save_day_schedule(chat_id, day_name, cfg)
+
+    new_st = "فعال" if cfg["enabled"] else "غیرفعال"
+    bot.answer_callback_query(call.id, f"رزرو روز {day_name} {new_st} شد.")
+    show_day_detail_menu(chat_id, day_name, call.message.message_id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("clr_day_slot:"))
+def callback_clear_day_slot(call):
+    chat_id = call.message.chat.id
+    _, day_name, st_type = call.data.split(":")
+    cfg = database.get_day_schedule(chat_id, day_name)
+
+    if st_type == "go":
+        cfg["go_station_id"] = ""
+        cfg["go_station_name"] = ""
+        cfg["go_time"] = ""
+    else:
+        cfg["return_station_id"] = ""
+        cfg["return_station_name"] = ""
+        cfg["return_time"] = ""
+
+    database.save_day_schedule(chat_id, day_name, cfg)
+    bot.answer_callback_query(call.id, "سرویس حذف شد.")
+    show_day_detail_menu(chat_id, day_name, call.message.message_id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("set_day_st:"))
+def callback_set_day_station(call):
+    chat_id = call.message.chat.id
+    _, day_name, st_type = call.data.split(":")
     client = get_client(chat_id)
     ok, stations = client.get_stations(st_type)
 
@@ -1202,73 +1331,240 @@ def callback_set_auto_station(call):
         bot.answer_callback_query(call.id, "خطا در دریافت لیست ایستگاه‌ها.")
         return
 
-    # Check favorites first
-    favs = database.get_favorites(chat_id, st_type)
+    if chat_id not in user_states:
+        user_states[chat_id] = {}
+    user_states[chat_id]["day_stations"] = stations
+    user_states[chat_id]["day_name"] = day_name
+    user_states[chat_id]["day_st_type"] = st_type
+
     markup = types.InlineKeyboardMarkup(row_width=1)
 
-    if favs:
-        for f in favs:
-            markup.add(types.InlineKeyboardButton(f"⭐ {f['station_name']} ({f['route_name']})", callback_data=f"save_auto_st:{st_type}:{f['station_id']}"))
+    # 1. Favorites at top
+    favs = database.get_favorites(chat_id, st_type)
+    fav_ids = {f["station_id"] for f in favs}
+    for f in favs:
+        markup.add(types.InlineKeyboardButton(f"⭐ {f['station_name']} ({f['route_name']})", callback_data=f"sel_day_st:{day_name}:{st_type}:{f['station_id']}"))
 
-    for st in stations[:8]:
-        markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"save_auto_st:{st_type}:{st['id']}"))
+    # 2. Top general stations
+    non_fav = [s for s in stations if s["id"] not in fav_ids]
+    for st in non_fav[:8]:
+        markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"sel_day_st:{day_name}:{st_type}:{st['id']}"))
 
-    markup.add(types.InlineKeyboardButton("🔙 بازگشت به تنظیمات", callback_data="back_to_settings"))
-    bot.edit_message_text(f"ایستگاه پیش‌فرض برای {'رفت' if st_type == 'go' else 'برگشت'} خودکار را انتخاب کنید:", chat_id, call.message.message_id, reply_markup=markup)
+    # 3. Search and Pagination
+    markup.add(types.InlineKeyboardButton("🔍 جستجوی ایستگاه با تایپ نام", callback_data=f"day_search_st:{day_name}:{st_type}"))
+    markup.add(types.InlineKeyboardButton("📜 نمایش تمام ایستگاه‌ها (صفحه‌بندی)", callback_data=f"day_all_st:{day_name}:{st_type}:0"))
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به تنظیمات این روز", callback_data=f"cfg_day:{day_name}"))
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("save_auto_st:"))
-def callback_save_auto_station(call):
+    dir_text = "رفت" if st_type == "go" else "برگشت"
+    bot.edit_message_text(
+        f"📍 انتخاب ایستگاه *{dir_text}* برای روز *«{day_name}»:*\nایستگاه مورد نظر را انتخاب کنید:",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("day_all_st:"))
+def callback_day_all_stations(call):
     chat_id = call.message.chat.id
-    _, st_type, st_id = call.data.split(":")
+    _, day_name, st_type, page_str = call.data.split(":")
+    page = int(page_str)
+    page_size = 7
+
+    state = user_states.get(chat_id, {})
+    stations = state.get("day_stations", [])
+    if not stations:
+        client = get_client(chat_id)
+        ok, stations = client.get_stations(st_type)
+        if ok:
+            state["day_stations"] = stations
+
+    total_pages = (len(stations) + page_size - 1) // page_size
+    current_page_items = stations[page * page_size:(page + 1) * page_size]
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for st in current_page_items:
+        markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"sel_day_st:{day_name}:{st_type}:{st['id']}"))
+
+    nav_btns = []
+    if page > 0:
+        nav_btns.append(types.InlineKeyboardButton("⬅️ قبلی", callback_data=f"day_all_st:{day_name}:{st_type}:{page-1}"))
+    if page < total_pages - 1:
+        nav_btns.append(types.InlineKeyboardButton("بعدی ➡️", callback_data=f"day_all_st:{day_name}:{st_type}:{page+1}"))
+    if nav_btns:
+        markup.row(*nav_btns)
+
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به لیست اصلی", callback_data=f"set_day_st:{day_name}:{st_type}"))
+
+    dir_text = "رفت" if st_type == "go" else "برگشت"
+    bot.edit_message_text(
+        f"📜 *تمام ایستگاه‌های {dir_text} روز {day_name} (صفحه {page+1} از {total_pages}):*",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("day_search_st:"))
+def callback_day_search_st(call):
+    chat_id = call.message.chat.id
+    _, day_name, st_type = call.data.split(":")
+
+    if chat_id not in user_states:
+        user_states[chat_id] = {}
+    user_states[chat_id]["step"] = "SEARCH_DAY_STATION"
+    user_states[chat_id]["day_name"] = day_name
+    user_states[chat_id]["day_st_type"] = st_type
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔙 انصراف و بازگشت", callback_data=f"set_day_st:{day_name}:{st_type}"))
+    bot.edit_message_text(
+        f"🔍 لطفاً نام ایستگاه مورد نظر برای { 'رفت' if st_type == 'go' else 'برگشت' } روز {day_name} را تایپ و ارسال کنید:",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+def handle_day_station_search(chat_id, query_text):
+    state = user_states.get(chat_id, {})
+    day_name = state.get("day_name", "شنبه")
+    st_type = state.get("day_st_type", "go")
+    stations = state.get("day_stations", [])
+    if not stations:
+        client = get_client(chat_id)
+        ok, stations = client.get_stations(st_type)
+        if ok:
+            state["day_stations"] = stations
+
+    matched = [s for s in stations if query_text in s["name"]]
+    if not matched:
+        bot.send_message(chat_id, f"نتیجه‌ای برای «{query_text}» یافت نشد. لطفاً نام دیگری را ارسال کنید:")
+        return
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for st in matched[:10]:
+        markup.add(types.InlineKeyboardButton(st["name"][:38], callback_data=f"sel_day_st:{day_name}:{st_type}:{st['id']}"))
+
+    markup.add(types.InlineKeyboardButton("🔙 بازگشت به تنظیمات ایستگاه", callback_data=f"set_day_st:{day_name}:{st_type}"))
+    bot.send_message(chat_id, f"🔍 نتایج جستجو برای *«{query_text}»:*\nایستگاه مورد نظر را انتخاب کنید:", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_day_st:"))
+def callback_selected_day_station(call):
+    chat_id = call.message.chat.id
+    _, day_name, st_type, st_id = call.data.split(":")
 
     client = get_client(chat_id)
     ok, stations = client.get_stations(st_type)
     st_info = next((s for s in stations if s["id"] == st_id), None) if ok else None
     st_name = st_info["name"] if st_info else st_id
 
-    settings = database.get_user_settings(chat_id)
-    if st_type == "go":
-        settings["go_station_id"] = st_id
-        settings["go_station_name"] = st_name
-    else:
-        settings["return_station_id"] = st_id
-        settings["return_station_name"] = st_name
-    database.save_user_settings(chat_id, settings)
+    if chat_id not in user_states:
+        user_states[chat_id] = {}
+    user_states[chat_id]["step"] = "SET_DAY_TIME"
+    user_states[chat_id]["target_day"] = day_name
+    user_states[chat_id]["target_type"] = st_type
+    user_states[chat_id]["temp_st_id"] = st_id
+    user_states[chat_id]["temp_st_name"] = st_name
 
-    # Now ask for default time
-    user_states[chat_id] = {
-        "step": "SET_AUTO_SLOT_TIME",
-        "station_type": st_type
-    }
+    markup = types.InlineKeyboardMarkup(row_width=4)
+    hours = [
+        "07:00", "07:15", "07:30", "07:45",
+        "08:00", "08:15", "08:30", "09:00",
+        "10:00", "11:00", "12:00", "13:00",
+        "14:00", "15:00", "16:00", "17:00"
+    ]
+    btns = [types.InlineKeyboardButton(h, callback_data=f"save_day_time:{day_name}:{st_type}:{h}") for h in hours]
+    for i in range(0, len(btns), 4):
+        markup.row(*btns[i:i+4])
 
-    markup = types.InlineKeyboardMarkup(row_width=3)
-    common_hours = ["07:15", "08:15", "09:15", "11:15", "12:15", "13:30", "14:00", "15:00", "16:30", "17:30", "18:30"]
-    for h in common_hours:
-        markup.add(types.InlineKeyboardButton(f"⏰ {h}", callback_data=f"save_auto_time:{st_type}:{h}"))
+    markup.add(types.InlineKeyboardButton("🔙 انصراف و بازگشت", callback_data=f"cfg_day:{day_name}"))
 
-    markup.add(types.InlineKeyboardButton("🔙 بازگشت", callback_data="back_to_settings"))
-    bot.edit_message_text(f"ایستگاه ثبت شد.\nحالا ساعت پیش‌فرض برای {'رفت' if st_type == 'go' else 'برگشت'} را انتخاب کنید:", chat_id, call.message.message_id, reply_markup=markup)
+    dir_text = "رفت" if st_type == "go" else "برگشت"
+    bot.edit_message_text(
+        f"📍 ایستگاه انتخابی {dir_text} روز {day_name}:\n*{st_name}*\n\n"
+        "⏰ ساعت مدنظر خود را از دکمه‌های زیر انتخاب کنید، یا ساعت دلخواه را در چت ارسال کنید (مانند `07:30`):",
+        chat_id,
+        call.message.message_id,
+        reply_markup=markup
+    )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("save_auto_time:"))
-def callback_save_auto_time(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("save_day_time:"))
+def callback_save_day_time(call):
     chat_id = call.message.chat.id
-    _, st_type, h_val = call.data.split(":")
+    _, day_name, st_type, h_val = call.data.split(":")
 
-    settings = database.get_user_settings(chat_id)
+    state = user_states.get(chat_id, {})
+    st_id = state.get("temp_st_id", "")
+    st_name = state.get("temp_st_name", "")
+
+    cfg = database.get_day_schedule(chat_id, day_name)
     if st_type == "go":
-        settings["go_time"] = h_val
+        if st_id:
+            cfg["go_station_id"] = st_id
+        if st_name:
+            cfg["go_station_name"] = st_name
+        cfg["go_time"] = h_val
     else:
-        settings["return_time"] = h_val
-    database.save_user_settings(chat_id, settings)
+        if st_id:
+            cfg["return_station_id"] = st_id
+        if st_name:
+            cfg["return_station_name"] = st_name
+        cfg["return_time"] = h_val
 
-    bot.answer_callback_query(call.id, f"ساعت {h_val} ذخیره شد.")
-    bot.delete_message(chat_id, call.message.message_id)
+    database.save_day_schedule(chat_id, day_name, cfg)
+    user_states.pop(chat_id, None)
+
+    bot.answer_callback_query(call.id, f"ساعت {h_val} برای روز {day_name} ثبت شد ✅")
+    show_day_detail_menu(chat_id, day_name, call.message.message_id)
+
+def handle_set_day_time_text(chat_id, text):
+    state = user_states.get(chat_id, {})
+    day_name = state.get("target_day")
+    st_type = state.get("target_type")
+    st_id = state.get("temp_st_id")
+    st_name = state.get("temp_st_name")
+
+    if not day_name or not st_type:
+        bot.send_message(chat_id, "⚠️ نشست منقضی شده است. لطفاً مجدداً از منوی تنظیمات روز اقدام کنید.")
+        return
+
+    time_str = text.strip()
+    parts = time_str.split(":")
+    if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+        bot.send_message(chat_id, "⚠️ فرمت ساعت صحیح نیست. لطفاً مانند `07:30` یا `16:00` ارسال کنید:")
+        return
+
+    h, m = int(parts[0]), int(parts[1])
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        bot.send_message(chat_id, "⚠️ ساعت وارد شده در بازه معتبر نیست.")
+        return
+
+    formatted_time = f"{h:02d}:{m:02d}"
+    cfg = database.get_day_schedule(chat_id, day_name)
+    if st_type == "go":
+        if st_id:
+            cfg["go_station_id"] = st_id
+        if st_name:
+            cfg["go_station_name"] = st_name
+        cfg["go_time"] = formatted_time
+    else:
+        if st_id:
+            cfg["return_station_id"] = st_id
+        if st_name:
+            cfg["return_station_name"] = st_name
+        cfg["return_time"] = formatted_time
+
+    database.save_day_schedule(chat_id, day_name, cfg)
+    user_states.pop(chat_id, None)
+
+    bot.send_message(
+        chat_id,
+        f"✅ ساعت *{formatted_time}* برای سرویس { 'رفت' if st_type == 'go' else 'برگشت' } روز *«{day_name}»* با موفقیت ذخیره شد.",
+        reply_markup=get_main_keyboard(True)
+    )
     show_auto_reserve_settings(chat_id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_settings")
 def callback_back_to_settings(call):
-    bot.delete_message(call.message.chat.id, call.message.message_id)
-    show_auto_reserve_settings(call.message.chat.id)
+    show_auto_reserve_settings(call.message.chat.id, call.message.message_id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "toggle_auto")
 def callback_toggle_auto(call):
@@ -1278,8 +1574,7 @@ def callback_toggle_auto(call):
     database.save_user_settings(chat_id, settings)
 
     bot.answer_callback_query(call.id, "تنظیمات بروزرسانی شد.")
-    bot.delete_message(chat_id, call.message.message_id)
-    show_auto_reserve_settings(chat_id)
+    show_auto_reserve_settings(chat_id, call.message.message_id)
 
 @bot.callback_query_handler(func=lambda call: call.data == "change_auto_time")
 def callback_change_auto_time(call):

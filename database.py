@@ -69,6 +69,8 @@ def init_db():
         cursor.execute("ALTER TABLE user_settings ADD COLUMN go_station_id TEXT DEFAULT ''")
     if "return_station_id" not in existing_cols:
         cursor.execute("ALTER TABLE user_settings ADD COLUMN return_station_id TEXT DEFAULT ''")
+    if "daily_schedules" not in existing_cols:
+        cursor.execute("ALTER TABLE user_settings ADD COLUMN daily_schedules TEXT DEFAULT '{}'")
 
     conn.commit()
     conn.close()
@@ -112,6 +114,8 @@ def delete_user_session(telegram_id):
 
 # ---------------- User Settings Operations ----------------
 
+WEEKDAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه"]
+
 def get_user_settings(telegram_id):
     conn = get_connection()
     cursor = conn.cursor()
@@ -124,15 +128,48 @@ def get_user_settings(telegram_id):
         try:
             data["days"] = json.loads(data["days"])
         except Exception:
-            data["days"] = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه"]
+            data["days"] = list(WEEKDAYS)
         data["enabled"] = bool(data["enabled"])
+
+        # Parse daily_schedules
+        if "daily_schedules" in data and data["daily_schedules"]:
+            try:
+                data["daily_schedules"] = json.loads(data["daily_schedules"])
+            except Exception:
+                data["daily_schedules"] = {}
+        else:
+            data["daily_schedules"] = {}
+
+        # Ensure every weekday exists in daily_schedules
+        for day in WEEKDAYS:
+            if day not in data["daily_schedules"]:
+                data["daily_schedules"][day] = {
+                    "enabled": True,
+                    "go_station_id": data.get("go_station_id", ""),
+                    "go_station_name": data.get("go_station_name", ""),
+                    "go_time": data.get("go_time", ""),
+                    "return_station_id": data.get("return_station_id", ""),
+                    "return_station_name": data.get("return_station_name", ""),
+                    "return_time": data.get("return_time", "")
+                }
         return data
 
     default = {
         "telegram_id": telegram_id,
         "enabled": False,
         "target_time": "00:01",
-        "days": ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه"],
+        "days": list(WEEKDAYS),
+        "daily_schedules": {
+            day: {
+                "enabled": True,
+                "go_station_id": "",
+                "go_station_name": "",
+                "go_time": "",
+                "return_station_id": "",
+                "return_station_name": "",
+                "return_time": ""
+            } for day in WEEKDAYS
+        },
         "go_station_id": "",
         "go_station_name": "",
         "go_time": "",
@@ -150,6 +187,7 @@ def save_user_settings(telegram_id, settings_dict):
     now = datetime.now().isoformat()
 
     days_json = json.dumps(settings_dict.get("days", []), ensure_ascii=False)
+    daily_schedules_json = json.dumps(settings_dict.get("daily_schedules", {}), ensure_ascii=False)
     enabled_int = 1 if settings_dict.get("enabled") else 0
     target_time = settings_dict.get("target_time", "00:01")
     go_station_id = settings_dict.get("go_station_id", "")
@@ -161,12 +199,13 @@ def save_user_settings(telegram_id, settings_dict):
     last_reserve_key = settings_dict.get("last_reserve_key", "")
 
     cursor.execute("""
-    INSERT INTO user_settings (telegram_id, enabled, target_time, days, go_station_id, go_station_name, go_time, return_station_id, return_station_name, return_time, last_reserve_key, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO user_settings (telegram_id, enabled, target_time, days, daily_schedules, go_station_id, go_station_name, go_time, return_station_id, return_station_name, return_time, last_reserve_key, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(telegram_id) DO UPDATE SET
         enabled = excluded.enabled,
         target_time = excluded.target_time,
         days = excluded.days,
+        daily_schedules = excluded.daily_schedules,
         go_station_id = excluded.go_station_id,
         go_station_name = excluded.go_station_name,
         go_time = excluded.go_time,
@@ -175,10 +214,29 @@ def save_user_settings(telegram_id, settings_dict):
         return_time = excluded.return_time,
         last_reserve_key = excluded.last_reserve_key,
         updated_at = excluded.updated_at;
-    """, (telegram_id, enabled_int, target_time, days_json, go_station_id, go_station_name, go_time, return_station_id, return_station_name, return_time, last_reserve_key, now))
+    """, (telegram_id, enabled_int, target_time, days_json, daily_schedules_json, go_station_id, go_station_name, go_time, return_station_id, return_station_name, return_time, last_reserve_key, now))
 
     conn.commit()
     conn.close()
+
+def get_day_schedule(telegram_id, day_name):
+    settings = get_user_settings(telegram_id)
+    return settings.get("daily_schedules", {}).get(day_name, {
+        "enabled": True,
+        "go_station_id": "",
+        "go_station_name": "",
+        "go_time": "",
+        "return_station_id": "",
+        "return_station_name": "",
+        "return_time": ""
+    })
+
+def save_day_schedule(telegram_id, day_name, day_cfg):
+    settings = get_user_settings(telegram_id)
+    if "daily_schedules" not in settings:
+        settings["daily_schedules"] = {}
+    settings["daily_schedules"][day_name] = day_cfg
+    save_user_settings(telegram_id, settings)
 
 # ---------------- User Favorites Operations ----------------
 
@@ -232,7 +290,7 @@ def get_all_active_auto_users():
     cursor = conn.cursor()
     cursor.execute("""
     SELECT u.telegram_id, u.phone, u.rana_session, u.csrf_token, u.user_name,
-           s.enabled, s.target_time, s.days, s.go_station_id, s.go_station_name, s.go_time,
+           s.enabled, s.target_time, s.days, s.daily_schedules, s.go_station_id, s.go_station_name, s.go_time,
            s.return_station_id, s.return_station_name, s.return_time, s.last_reserve_key
     FROM user_settings s
     JOIN users u ON s.telegram_id = u.telegram_id
@@ -248,6 +306,10 @@ def get_all_active_auto_users():
             d["days"] = json.loads(d["days"])
         except Exception:
             d["days"] = []
+        try:
+            d["daily_schedules"] = json.loads(d["daily_schedules"]) if d.get("daily_schedules") else {}
+        except Exception:
+            d["daily_schedules"] = {}
         d["enabled"] = bool(d["enabled"])
         result.append(d)
     return result

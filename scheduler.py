@@ -40,20 +40,14 @@ class AutoScheduler:
 
         now = datetime.now()
         current_time_str = now.strftime("%H:%M")
-        current_day_name = self._get_persian_day_name(now.weekday())
 
         for user in active_users:
             try:
                 tg_id = user["telegram_id"]
                 target_time = user.get("target_time", "00:01")
-                days = user.get("days", [])
                 last_key = user.get("last_reserve_key", "")
 
                 today_key = f"{now.strftime('%Y-%m-%d')}_{target_time}"
-
-                # Check day and time match
-                if days and current_day_name not in days:
-                    continue
 
                 if current_time_str == target_time and last_key != today_key:
                     settings = database.get_user_settings(tg_id)
@@ -85,17 +79,6 @@ class AutoScheduler:
             return
 
         settings = database.get_user_settings(telegram_id)
-        go_st_id = settings.get("go_station_id", "")
-        go_st_name = settings.get("go_station_name", "")
-        go_time_str = settings.get("go_time", "")
-        return_st_id = settings.get("return_station_id", "")
-        return_st_name = settings.get("return_station_name", "")
-        return_time_str = settings.get("return_time", "")
-
-        if not go_time_str and not return_time_str:
-            self.notify_callback(telegram_id, "⚠️ **خطا در رزرو خودکار:**\nایستگاه یا ساعت پیش‌فرض در تنظیمات ثبت نشده است.")
-            return
-
         client = RanaClient(telegram_id=telegram_id)
 
         # 1. Fetch available tabs
@@ -112,6 +95,46 @@ class AutoScheduler:
         target_tab = tabs[-1]
         date_slug = target_tab["slug"]
         date_label = target_tab["label"]
+
+        # Determine target day of week
+        target_day = None
+        for d in ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه"]:
+            if d in date_label:
+                target_day = d
+                break
+
+        if not target_day:
+            tomorrow_weekday = (datetime.now().weekday() + 1) % 7
+            target_day = self._get_persian_day_name(tomorrow_weekday)
+
+        # Look up day-specific schedule
+        daily_schedules = settings.get("daily_schedules", {})
+        day_cfg = daily_schedules.get(target_day)
+
+        if day_cfg:
+            if not day_cfg.get("enabled", True):
+                logger.info(f"Target day '{target_day}' is disabled in daily schedule for user {telegram_id}. Skipping.")
+                return
+            go_st_id = day_cfg.get("go_station_id", "")
+            go_st_name = day_cfg.get("go_station_name", "")
+            go_time_str = day_cfg.get("go_time", "")
+            return_st_id = day_cfg.get("return_station_id", "")
+            return_st_name = day_cfg.get("return_station_name", "")
+            return_time_str = day_cfg.get("return_time", "")
+        else:
+            go_st_id = settings.get("go_station_id", "")
+            go_st_name = settings.get("go_station_name", "")
+            go_time_str = settings.get("go_time", "")
+            return_st_id = settings.get("return_station_id", "")
+            return_st_name = settings.get("return_station_name", "")
+            return_time_str = settings.get("return_time", "")
+
+        if not go_time_str and not return_time_str:
+            self.notify_callback(
+                telegram_id,
+                f"ℹ️ **اطلاعیه رزرو خودکار:**\nبرای روز *«{target_day}»* ({date_label}) هیچ ایستگاه یا ساعتی در برنامه روزانه شما ثبت نشده است."
+            )
+            return
 
         # Check if already booked
         already_booked = [b for b in booked if b.get("slug") == date_slug]
@@ -179,7 +202,7 @@ class AutoScheduler:
 
         if res_ok:
             report = (
-                f"✅ **رزرو خودکار با موفقیت انجام شد!** 🎉\n\n"
+                f"✅ **رزرو خودکار برنامه روز «{target_day}» با موفقیت انجام شد!** 🎉\n\n"
                 f"📅 **تاریخ:** {date_label}\n"
             )
             if go_slot_val:
