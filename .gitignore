@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Database and sessions (Sensitive user data)
+database.sqlite
+database.sqlite-journal
+session.json
+settings.json
+*.log
+.env
+.idea/
+.vscode/

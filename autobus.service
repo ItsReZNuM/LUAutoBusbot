@@ -1,0 +1,19 @@
+[Unit]
+Description=University Autobus Reservation Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/Autobus
+ExecStart=/opt/Autobus/venv/bin/python /opt/Autobus/bot.py
+Restart=always
+RestartSec=10
+Environment="PYTHONUNBUFFERED=1"
+# If your Linux VPS needs Telegram proxy:
+# Environment="TELEGRAM_PROXY=socks5://127.0.0.1:10808"
+# If your Linux VPS is outside Iran and needs Iran proxy for university site:
+# Environment="IRAN_PROXY=http://user:pass@iran_proxy_ip:port"
+
+[Install]
+WantedBy=multi-user.target
