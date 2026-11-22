@@ -1,0 +1,2594 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>سامانه رزرواسیون اتوبوس دانشگاه لرستان | وانابوم</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vazirmatn Persian Font -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Vazirmatn', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+
+    // Init theme
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Vazirmatn', sans-serif;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(148, 163, 184, 0.1);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.5);
+    }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col antialiased transition-colors duration-200">
+
+  <!-- Top Navbar -->
+  <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 shadow-sm transition-colors duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 space-x-reverse">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-blue-500/20">
+          🚌
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight">رزرواسیون اتوبوس دانشگاه لرستان</h1>
+          <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">نسخه وب یکپارچه سامانه ترابری وانابوم (رانا)</p>
+        </div>
+      </div>
+
+      <!-- User Status & Theme Switcher -->
+      <div class="flex items-center space-x-2 sm:space-x-3 space-x-reverse">
+        
+        <!-- Mobile Access Guide Button -->
+        <button onclick="openMobileGuideModal()" id="mobile-guide-btn" class="px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-xs font-semibold transition flex items-center gap-1.5 shadow-sm" title="راهنمای اجرای سامانه روی موبایل بدون نیاز به لپ‌تاپ">
+          <span>📱</span>
+          <span class="hidden sm:inline">اجرای روی موبایل</span>
+        </button>
+
+        <!-- Dark Mode Toggle Button -->
+        <button onclick="toggleTheme()" id="theme-btn" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition" title="تغییر تم دارک/لایت">
+          <span id="theme-icon">🌙</span>
+        </button>
+
+        <div id="user-badge" class="flex items-center bg-slate-100 dark:bg-slate-800 py-1.5 px-3 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-400 ml-2 animate-pulse" id="status-dot"></span>
+          <span id="user-display-name" class="text-slate-700 dark:text-slate-300">در حال بررسی ارتباط...</span>
+        </div>
+        <button id="auth-action-btn" onclick="openLoginModal()" class="hidden px-3.5 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-sm">
+          ورود با پیامک (OTP)
+        </button>
+        <button id="logout-btn" onclick="handleLogout()" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-all">
+          خروج
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-100 dark:border-slate-800 flex space-x-1 sm:space-x-4 space-x-reverse overflow-x-auto">
+      <button onclick="switchTab('reserve')" id="nav-reserve" class="nav-tab py-3 px-3 text-xs sm:text-sm font-semibold border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 flex items-center whitespace-nowrap">
+        <span>🚌 رزرو سرویس جدید</span>
+        <span id="cart-badge-count" class="hidden mr-1.5 px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs">0</span>
+      </button>
+      <button onclick="switchTab('trips')" id="nav-trips" class="nav-tab py-3 px-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center whitespace-nowrap">
+        <span>📋 سفرهای رزروشده</span>
+        <span id="trips-count-badge" class="mr-1.5 px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">۰</span>
+      </button>
+      <button onclick="switchTab('favorites')" id="nav-favorites" class="nav-tab py-3 px-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center whitespace-nowrap">
+        <span>⭐ ایستگاه‌های منتخب</span>
+      </button>
+      <button onclick="switchTab('auto-settings')" id="nav-auto-settings" class="nav-tab py-3 px-3 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center whitespace-nowrap">
+        <span>⏰ تنظیمات رزرو خودکار</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="fixed bottom-5 left-5 z-50 flex flex-col space-y-2 max-w-sm pointer-events-none"></div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 1: MANUAL RESERVATION WIZARD                             -->
+    <!-- ============================================================ -->
+    <div id="tab-reserve" class="tab-content block">
+      
+      <!-- Top Wizard Info & Cart Bar -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">فرآیند مرحله‌به‌مرحله رزرو سرویس اتوبوس</h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">امکان انتخاب یک یا تمام ساعت‌های ایستگاه، فیلتر سریع ایستگاه‌ها و ثبت مستقیم در سامانه وانابوم</p>
+        </div>
+        <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+          <button onclick="loadReserveDays()" class="text-xs px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition flex items-center">
+            🔄 بروزرسانی روزها
+          </button>
+          <button onclick="openCartModal()" id="cart-btn" class="text-xs px-4 py-2 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-medium transition flex items-center shadow-sm">
+            🛒 سبد رزرو (<span id="cart-item-count">0</span> مورد)
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 1: Available Days -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center">
+            <span class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 flex items-center justify-center ml-2 text-xs">۱</span>
+            انتخاب روز سرویس‌دهی باز در سامانه:
+          </label>
+        </div>
+        <div id="days-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div class="col-span-full py-8 text-center text-slate-400 text-xs animate-pulse">در حال دریافت روزهای فعال از سرور دانشگاه...</div>
+        </div>
+      </div>
+
+      <!-- Step 2: Direction & Station Selector -->
+      <div id="station-section" class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6 opacity-50 pointer-events-none transition-all">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <label class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center">
+            <span class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 flex items-center justify-center ml-2 text-xs">۲</span>
+            انتخاب جهت و ایستگاه:
+          </label>
+          
+          <!-- Direction Segmented Switch -->
+          <div class="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-medium">
+            <button onclick="setDirection('go')" id="dir-btn-go" class="px-4 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition">
+              🟢 رفت (به کمالوند / کشاورزی)
+            </button>
+            <button onclick="setDirection('return')" id="dir-btn-return" class="px-4 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
+              🔵 برگشت (از کمالوند / کشاورزی)
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Search Box -->
+        <div class="relative mb-4">
+          <input type="text" id="station-search" oninput="filterStations()" placeholder="🔍 جستجوی نام ایستگاه یا مسیر (مثلاً مصلی، ولیعصر، کشاورزی، ناصرخسرو...)" 
+                 class="w-full pl-4 pr-10 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 transition">
+          <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+            🔎
+          </div>
+        </div>
+
+        <!-- Starred Favorites Quick Bar -->
+        <div id="fav-quick-container" class="mb-4 hidden">
+          <div class="text-xs font-bold text-amber-600 dark:text-amber-400 mb-2 flex items-center">
+            ⭐ ایستگاه‌های نشان‌شده شما:
+          </div>
+          <div id="fav-quick-list" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Stations Grid -->
+        <div id="stations-container" class="max-h-64 overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div class="col-span-full py-6 text-center text-slate-400 text-xs">لطفاً ابتدا یک تاریخ را انتخاب کنید.</div>
+        </div>
+      </div>
+
+      <!-- Step 3: Available Time Slots -->
+      <div id="slots-section" class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6 opacity-50 pointer-events-none transition-all">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <label class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center">
+              <span class="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-600 dark:text-blue-300 flex items-center justify-center ml-2 text-xs">۳</span>
+              ساعت‌های فعال برای رزرو:
+            </label>
+            <p id="slots-header-info" class="text-xs text-slate-500 dark:text-slate-400 mt-1">ایستگاهی انتخاب نشده است.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Counterpart Fast Switch Button -->
+            <button onclick="switchDirectionCounterpart()" id="switch-counterpart-btn" class="hidden text-xs px-3 py-1.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition flex items-center font-medium">
+              ↔️ <span id="switch-counterpart-text">مشاهده ساعت‌های برگشت</span>
+            </button>
+            <button onclick="toggleStarCurrentStation()" id="star-current-station-btn" class="text-xs px-3 py-1.5 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition flex items-center font-medium">
+              ⭐ افزودن به منتخب‌ها
+            </button>
+            <button onclick="selectAllSlotsForStation()" id="select-all-slots-btn" class="text-xs px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition flex items-center font-medium">
+              ⚡ انتخاب همه ساعت‌ها
+            </button>
+            <button onclick="deselectAllSlotsForStation()" id="deselect-all-slots-btn" class="text-xs px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center font-medium">
+              🔄 لغو انتخاب‌ها
+            </button>
+            <!-- Round-trip Smart Action Buttons -->
+            <button onclick="openRoundTripPickerModal()" id="roundtrip-picker-btn" class="text-xs px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm shadow-indigo-500/20 transition flex items-center" title="انتخاب ساعت رفت و ساعت برگشت به صورت همزمان">
+              🎯 انتخاب رفت و برگشت همزمان
+            </button>
+            <button onclick="reserveRoundTripAllNow()" id="reserve-roundtrip-all-btn" class="text-xs px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-sm shadow-purple-500/20 transition flex items-center" title="رزرو یکجای تمام ساعت‌های رفت به علاوه تمام ساعت‌های برگشت">
+              🔁 رزرو تمام ساعت‌های رفت و برگشت
+            </button>
+            <button onclick="reserveAllSlotsForStationNow()" id="reserve-all-station-btn" class="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm shadow-emerald-500/20 transition flex items-center">
+              🚀 رزرو همه ساعت‌های این جهت
+            </button>
+            <button onclick="cancelAllSlotsForStationNow()" id="cancel-all-station-btn" class="text-xs px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-sm shadow-rose-500/20 transition flex items-center">
+              🗑️ کنسل همه ساعت‌های این ایستگاه
+            </button>
+          </div>
+        </div>
+
+        <div id="slots-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div class="col-span-full py-6 text-center text-slate-400 text-xs">ایستگاهی انتخاب نشده است.</div>
+        </div>
+
+        <!-- Action Bar after selecting slots -->
+        <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div class="text-xs text-slate-500 dark:text-slate-400">
+            💡 می‌توانید تمام ساعت‌های این ایستگاه را با یک کلیک رزرو کنید یا ساعت‌های دلخواه را به سبد بیفزایید.
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="openCartModal()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md shadow-blue-500/20 transition flex items-center">
+              🚀 مشاهده سبد و تایید نهایی رزرو
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 2: ACTIVE TRIPS & CANCELLATION                           -->
+    <!-- ============================================================ -->
+    <div id="tab-trips" class="tab-content hidden">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">سفرهای رزروشده و فعال در سامانه وانابوم</h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">مشاهده و لغو آنی سفرهای ثبت‌شده شما به صورت تکی یا یکجا</p>
+        </div>
+        <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <button onclick="loadBookedTrips()" class="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-medium transition flex items-center">
+            🔄 تازه‌سازی استعلام
+          </button>
+          <button onclick="cancelAllTrips()" id="cancel-all-btn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/20 transition flex items-center">
+            🗑 لغو تمام سفرهای فعال (<span id="cancel-all-count">۰</span> مورد)
+          </button>
+        </div>
+      </div>
+
+      <div id="trips-container" class="space-y-3">
+        <div class="py-12 text-center text-slate-400 text-xs">در حال دریافت سفرهای فعال...</div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 3: FAVORITES MANAGEMENT                                  -->
+    <!-- ============================================================ -->
+    <div id="tab-favorites" class="tab-content hidden">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">ایستگاه‌ها و مسیرهای منتخب (علاقه‌مندی‌ها)</h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">این ایستگاه‌ها همواره در بالای لیست رزرو دستی و تنظیمات رزرو خودکار نمایش داده می‌شوند</p>
+        </div>
+        <button onclick="openAddFavModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition flex items-center">
+          ➕ افزودن ایستگاه جدید
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Go Favorites -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h3 class="text-sm font-bold text-emerald-700 dark:text-emerald-400 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center mb-3">
+            🟢 ایستگاه‌های منتخب رفت
+          </h3>
+          <div id="fav-go-list" class="space-y-2">
+            <div class="py-6 text-center text-slate-400 text-xs">هنوز ایستگاه رفت نشان‌شده‌ای ندارید.</div>
+          </div>
+        </div>
+
+        <!-- Return Favorites -->
+        <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <h3 class="text-sm font-bold text-blue-700 dark:text-blue-400 pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center mb-3">
+            🔵 ایستگاه‌های منتخب برگشت
+          </h3>
+          <div id="fav-return-list" class="space-y-2">
+            <div class="py-6 text-center text-slate-400 text-xs">هنوز ایستگاه برگشت نشان‌شده‌ای ندارید.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 4: AUTONOMOUS SCHEDULER SETTINGS                         -->
+    <!-- ============================================================ -->
+    <div id="tab-auto-settings" class="tab-content hidden">
+      
+      <!-- Master Control Box -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mb-6">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <div class="flex items-center space-x-2 space-x-reverse">
+              <span class="text-xl">⏰</span>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">تنظیمات رزرو خودکار هفتگی (شنبه تا چهارشنبه)</h2>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              ربات در ساعت مشخص‌شده هر شب به صورت خودکار سامانه وانابوم را بررسی کرده و پلن روز بعد را برای شما رزرو می‌کند.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="testAutoReserveNow()" class="px-4 py-2 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 rounded-xl text-xs font-bold transition flex items-center shadow-sm">
+              ⚡ اجرای آزمایشی (همین الان)
+            </button>
+            <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span class="text-xs font-bold text-slate-700 dark:text-slate-300 ml-2">فعال‌سازی کلی:</span>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="auto-master-toggle" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-300 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 flex flex-wrap items-center gap-4">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">ساعت اجرای شبانه:</label>
+            <input type="time" id="auto-target-time" class="px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <span class="text-xs text-slate-400">(پیش‌فرض: 00:01 بامداد شب قبل از هر سرویس)</span>
+          </div>
+          <button onclick="saveAutoSettings()" class="mr-auto px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+            💾 ذخیره کلیه تنظیمات
+          </button>
+        </div>
+      </div>
+
+      <!-- Days Matrix -->
+      <div id="weekly-days-container" class="space-y-4">
+        <!-- Rendered by JS for Saturday to Wednesday -->
+      </div>
+
+      <!-- Execution Logs Container -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm mt-6">
+        <h3 class="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3 flex items-center">
+          📜 آخرین گزارش‌های رزرو خودکار:
+        </h3>
+        <div id="auto-logs-container" class="bg-slate-50 dark:bg-slate-950 rounded-xl p-3 border border-slate-200 dark:border-slate-800 text-xs font-mono text-slate-600 dark:text-slate-400 max-h-40 overflow-y-auto space-y-1">
+          <div>در حال حاضر لاگی ثبت نشده است.</div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: LIVE RESERVATION / CANCELLATION PROGRESS              -->
+  <!-- ============================================================ -->
+  <div id="reserve-progress-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 relative flex flex-col max-h-[90vh]">
+      <!-- Header with animated icon -->
+      <div class="text-center pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div class="relative w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+          <div id="progress-spinner" class="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-900/40 border-t-blue-600 animate-spin"></div>
+          <div id="progress-icon" class="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-2xl shadow-inner animate-bounce">
+            🚌
+          </div>
+        </div>
+        <h3 id="progress-title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">در حال پردازش درخواست...</h3>
+        <p id="progress-subtitle" class="text-xs text-slate-500 dark:text-slate-400 mt-1">ارتباط مستقیم با سامانه وانابوم با آی‌پی ایران</p>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="my-4">
+        <div class="flex items-center justify-between text-xs font-bold mb-1.5">
+          <span id="progress-step-text" class="text-slate-700 dark:text-slate-300">مورد ۰ از ۰</span>
+          <span id="progress-percent" class="text-blue-600 dark:text-blue-400 font-mono">۰٪</span>
+        </div>
+        <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-200 dark:border-slate-700">
+          <div id="progress-bar-fill" class="bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div id="progress-current-action" class="text-xs text-slate-500 dark:text-slate-400 mt-2 truncate font-medium">آماده‌سازی درخواست‌ها...</div>
+      </div>
+
+      <!-- Real-time logs list -->
+      <div class="flex-1 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50 dark:bg-slate-950 space-y-2 max-h-48 my-2" id="progress-logs-container">
+      </div>
+
+      <!-- Footer action -->
+      <div id="progress-footer" class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 hidden">
+        <span id="progress-summary-badge" class="text-xs font-bold text-slate-700 dark:text-slate-300"></span>
+        <div class="flex items-center gap-2">
+          <button onclick="closeProgressModal(true)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
+            📋 مشاهده سفرهای فعال
+          </button>
+          <button onclick="closeProgressModal(false)" class="px-3.5 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-xl transition">
+            بستن
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: CONFIRMATION DIALOG                                   -->
+  <!-- ============================================================ -->
+  <div id="confirm-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 text-center transform transition-all">
+      <div id="confirm-icon" class="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center text-2xl mx-auto mb-4 shadow-inner">
+        🗑️
+      </div>
+      <h3 id="confirm-title" class="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-2">تایید لغو</h3>
+      <p id="confirm-message" class="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">آیا از انجام این عملیات اطمینان دارید؟</p>
+      <div class="flex items-center justify-center gap-3">
+        <button onclick="closeConfirmModal(false)" class="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition">
+          انصراف
+        </button>
+        <button id="confirm-ok-btn" onclick="onConfirmModalOk()" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-rose-500/20">
+          تایید و لغو
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: ROUND-TRIP PICKER (انتخاب همزمان رفت و برگشت)         -->
+  <!-- ============================================================ -->
+  <div id="roundtrip-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-l from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20">
+        <div>
+          <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🔁</span>
+            <span>رزرو هم‌زمان رفت و برگشت ایستگاه</span>
+          </h3>
+          <p id="roundtrip-modal-subtitle" class="text-xs text-slate-500 dark:text-slate-400 mt-1">انتخاب ساعت‌های دلخواه رفت و برگشت با یک کلیک</p>
+        </div>
+        <button onclick="closeRoundTripModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xl font-bold">&times;</button>
+      </div>
+
+      <!-- Two-column slots selection -->
+      <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto">
+        <!-- Column 1: Go Slots -->
+        <div class="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/60 dark:bg-slate-950/40 flex flex-col">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-3">
+            <div>
+              <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                <span>🟢</span>
+                <span id="roundtrip-go-station-name">سرویس‌های رفت</span>
+              </span>
+              <span id="roundtrip-go-route-name" class="text-[10px] text-slate-500 dark:text-slate-400 block line-clamp-1 mt-0.5"></span>
+            </div>
+            <button onclick="toggleSelectAllModalColumn('go')" class="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline">
+              انتخاب همه
+            </button>
+          </div>
+          <div id="roundtrip-go-slots-list" class="space-y-2 flex-1 overflow-y-auto max-h-60 pr-1">
+            <div class="text-center py-6 text-xs text-slate-400">در حال دریافت ساعت‌های رفت...</div>
+          </div>
+        </div>
+
+        <!-- Column 2: Return Slots -->
+        <div class="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/60 dark:bg-slate-950/40 flex flex-col">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 mb-3">
+            <div>
+              <span class="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                <span>🔵</span>
+                <span id="roundtrip-ret-station-name">سرویس‌های برگشت</span>
+              </span>
+              <span id="roundtrip-ret-route-name" class="text-[10px] text-slate-500 dark:text-slate-400 block line-clamp-1 mt-0.5"></span>
+            </div>
+            <button onclick="toggleSelectAllModalColumn('return')" class="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline">
+              انتخاب همه
+            </button>
+          </div>
+          <div id="roundtrip-ret-slots-list" class="space-y-2 flex-1 overflow-y-auto max-h-60 pr-1">
+            <div class="text-center py-6 text-xs text-slate-400">در حال دریافت ساعت‌های برگشت...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-3">
+        <div class="text-xs font-medium text-slate-600 dark:text-slate-300">
+          انتخاب‌شده: <strong id="roundtrip-selected-summary" class="text-indigo-600 dark:text-indigo-400">۰ رفت + ۰ برگشت</strong>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="closeRoundTripModal()" class="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-medium transition">
+            بستن
+          </button>
+          <button onclick="addRoundTripToCart()" class="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-semibold transition">
+            🛒 افزودن به سبد
+          </button>
+          <button onclick="submitRoundTripDirectReserve()" id="roundtrip-direct-btn" class="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition flex items-center">
+            🚀 ثبت مستقیم رفت و برگشت
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: MOBILE EXECUTION GUIDE (اجرای روی موبایل بدون لپ‌تاپ)   -->
+  <!-- ============================================================ -->
+  <div id="mobile-guide-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-blue-50/50 dark:bg-blue-950/30">
+        <div class="flex items-center space-x-2 space-x-reverse">
+          <span class="text-2xl">📱</span>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">روش‌های اجرای سامانه روی موبایل (بدون نیاز به لپ‌تاپ)</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">۳ راهکار کاربردی برای دسترسی همیشگی از روی گوشی تلفن همراه</p>
+          </div>
+        </div>
+        <button onclick="closeMobileGuideModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="p-5 space-y-4 flex-1 overflow-y-auto text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+        <!-- Method 1: Same Wi-Fi (Instant) -->
+        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>📶</span>
+              <span>روش ۱: اتصال با گوشی در شبکه Wi-Fi مشترک (فوری)</span>
+            </h4>
+            <span class="text-[10px] bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">همین الان فعال است</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            اگر لپ‌تاپ و گوشی شما به یک مودم Wi-Fi متصل هستند، کافیست این آدرس را در مرورگر (Chrome یا Safari) گوشی خود باز کنید:
+          </p>
+          <div class="flex items-center gap-2 pt-1">
+            <code id="mobile-lan-url-display" class="flex-1 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-mono text-blue-600 dark:text-blue-400 font-bold text-xs sm:text-sm text-center select-all">در حال دریافت آدرس...</code>
+            <button onclick="copyLanUrl()" class="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition whitespace-nowrap">
+              📋 کپی آدرس
+            </button>
+          </div>
+        </div>
+
+        <!-- Method 2: Termux Android (Standalone on Mobile, No Laptop!) -->
+        <div class="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+              <span>🤖</span>
+              <span>روش ۲: اجرای مستقیم روی خود گوشی اندروید (با Termux - بدون نیاز به لپ‌تاپ!)</span>
+            </h4>
+            <span class="text-[10px] bg-indigo-200 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200 px-2 py-0.5 rounded-full font-bold">۱۰۰٪ رایگان و مستقل</span>
+          </div>
+          <p class="text-xs text-slate-600 dark:text-slate-300">
+            می‌توانید برنامه رایگان <strong>Termux</strong> را روی گوشی نصب کنید و این سامانه را مستقیماً داخل خود گوشی اجرا کنید تا همیشه با سیم‌کارت ایران بدون فیلترشکن وصل شود:
+          </p>
+          <ol class="list-decimal list-inside text-xs space-y-1 pr-1 font-sans text-slate-600 dark:text-slate-300">
+            <li>نصب <strong>Termux</strong> از سایت F-Droid یا GitHub.</li>
+            <li>اجرای دستور: <code class="bg-indigo-100 dark:bg-indigo-900/60 px-1 py-0.5 rounded font-mono">pkg update && pkg install python git -y</code></li>
+            <li>کلون ریپازیتوری یا کپی پوشه پروژه روی حافظه گوشی.</li>
+            <li>نصب پیش‌نیازها: <code class="bg-indigo-100 dark:bg-indigo-900/60 px-1 py-0.5 rounded font-mono">pip install -r requirements.txt</code></li>
+            <li>اجرا: <code class="bg-indigo-100 dark:bg-indigo-900/60 px-1 py-0.5 rounded font-mono">python web_server.py</code></li>
+            <li>باز کردن آدرس <code class="bg-indigo-100 dark:bg-indigo-900/60 px-1 py-0.5 rounded font-mono">http://127.0.0.1:8000</code> در کروم گوشی!</li>
+          </ol>
+        </div>
+
+        <!-- Method 3: Cheap Cloud VPS Iran (24/7 Always-On) -->
+        <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>☁️</span>
+              <span>روش ۳: استقرار روی سرور ابری ایران (VPS ۲۴ ساعته - بهترین برای رزرو خودکار)</span>
+            </h4>
+            <span class="text-[10px] bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold">پیشنهاد حرفه‌ای</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            با تهیه یک سرور مجازی بسیار ارزان لینوکس ایران (ماهانه حدود ۵۰ تا ۱۰۰ هزار تومان از شرکت‌هایی مثل چابکان، پارس‌پک یا ابر آروان)، این برنامه به صورت ۲۴ ساعته فعال می‌ماند. رزرو خودکار شبانه در ساعت 00:01 حتی زمانی که گوشی و لپ‌تاپ خاموش است کار می‌کند و شما همیشه با یک آدرس اختصاصی از هر کجای دنیا به آن دسترسی خواهید داشت.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-end">
+        <button onclick="closeMobileGuideModal()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition">
+          متوجه شدم
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: CART & BATCH CONFIRMATION                             -->
+  <!-- ============================================================ -->
+  <div id="cart-modal" class="fixed inset-0 z-50 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center">
+          🛒 سبد رزرو سرویس‌ها (<span id="modal-cart-count">0</span> مورد)
+        </h3>
+        <button onclick="closeCartModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-lg">&times;</button>
+      </div>
+
+      <div id="cart-items-list" class="p-5 overflow-y-auto space-y-3 flex-1">
+        <div class="py-10 text-center text-slate-400 text-xs">سبد رزرو شما در حال حاضر خالی است.</div>
+      </div>
+
+      <div class="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-wrap items-center justify-between gap-3">
+        <button onclick="clearCart()" class="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 font-medium px-3 py-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+          🗑 خالی کردن سبد
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeCartModal()" class="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-medium transition">
+            افزودن مسیر بیشتر
+          </button>
+          <button onclick="submitBatchReserve()" id="submit-reserve-btn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition flex items-center">
+            ✅ تایید و ثبت نهایی در وانابوم
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: ADD FAVORITE                                          -->
+  <!-- ============================================================ -->
+  <div id="add-fav-modal" class="fixed inset-0 z-50 bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <h3 class="text-base font-bold text-slate-900 dark:text-white">➕ افزودن ایستگاه به علاقه‌مندی‌ها</h3>
+        <button onclick="closeAddFavModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-lg">&times;</button>
+      </div>
+      <div class="p-5 space-y-4 flex-1 overflow-y-auto">
+        <div>
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">جهت ایستگاه:</label>
+          <select id="add-fav-type" onchange="loadAddFavStations()" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs focus:ring-2 focus:ring-blue-500">
+            <option value="go">🟢 رفت (به کمالوند / کشاورزی)</option>
+            <option value="return">🔵 برگشت (از کمالوند / کشاورزی)</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">جستجو و انتخاب ایستگاه:</label>
+          <input type="text" id="add-fav-search" oninput="filterAddFavStations()" placeholder="تایپ نام ایستگاه..." class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs mb-2">
+          <div id="add-fav-stations-list" class="max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-xl p-2 space-y-1 bg-slate-50 dark:bg-slate-950">
+            <div class="text-center py-4 text-xs text-slate-400">در حال دریافت ایستگاه‌ها...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL: LOGIN / OTP                                           -->
+  <!-- ============================================================ -->
+  <div id="login-modal" class="fixed inset-0 z-50 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 relative">
+      <button onclick="closeLoginModal()" class="absolute top-4 left-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xl font-bold">&times;</button>
+
+      <div class="text-center mb-5">
+        <div class="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl mx-auto mb-3 shadow-inner">
+          🔐
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 dark:text-white">ورود به سامانه دانشگاه</h3>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">با شماره موبایل ثبت‌شده در وانابوم کد تایید دریافت کنید</p>
+      </div>
+
+      <!-- Step 1: Mobile -->
+      <div id="login-step-mobile" class="space-y-4">
+        <div>
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">شماره تلفن همراه:</label>
+          <input type="tel" id="login-phone-input" value="09166280889" placeholder="09166280889" dir="ltr"
+                 class="w-full text-center tracking-widest font-mono text-base px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 transition">
+        </div>
+        <button onclick="submitRequestOtp()" id="request-otp-btn" class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition">
+          دریافت کد تایید پیامکی (OTP)
+        </button>
+      </div>
+
+      <!-- Step 2: Code -->
+      <div id="login-step-code" class="space-y-4 hidden">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">کد تایید ۶ رقمی پیامک‌شده:</label>
+            <span id="target-phone-label" class="text-xs text-blue-600 dark:text-blue-400 font-mono" dir="ltr"></span>
+          </div>
+          <input type="text" id="login-code-input" placeholder="307664" maxlength="6" dir="ltr"
+                 class="w-full text-center tracking-widest font-mono text-2xl font-bold py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-slate-900 transition">
+        </div>
+        <button onclick="submitVerifyOtp()" id="verify-otp-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition">
+          تایید و ورود به حساب
+        </button>
+        <button onclick="backToMobileStep()" class="w-full py-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition">
+          ویرایش شماره موبایل
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-auto py-4 text-center text-xs text-slate-400 dark:text-slate-500 transition-colors duration-200">
+    سامانه رزرو سرویس‌های دانشگاه لرستان &bull; اتصال مستقیم بدون نیاز به فیلترشکن با آی‌پی ایران
+  </footer>
+
+  <!-- Main JavaScript Application Logic -->
+  <script>
+    // State Variables
+    let currentDirection = 'go'; // 'go' or 'return'
+    let selectedDateSlug = '';
+    let selectedDateLabel = '';
+    let availableDays = [];
+    let allStations = { go: [], return: [] };
+    let currentSlots = [];
+    let selectedStation = null;
+    let userCart = [];
+    let userFavorites = [];
+    let autoSettings = null;
+    let pendingOtpQuery = '';
+    let currentBookedTrips = [];
+
+    const API_BASE = window.location.origin;
+
+    // Theme Switcher
+    function toggleTheme() {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.theme = 'light';
+        document.getElementById('theme-icon').textContent = '🌙';
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.theme = 'dark';
+        document.getElementById('theme-icon').textContent = '☀️';
+      }
+    }
+
+    function initThemeIcon() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const icon = document.getElementById('theme-icon');
+      if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+    }
+
+    // Toast Utility
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white shadow-emerald-500/30',
+        error: 'bg-rose-600 text-white shadow-rose-500/30',
+        warning: 'bg-amber-600 text-white shadow-amber-500/30',
+        info: 'bg-slate-800 dark:bg-slate-700 text-white shadow-slate-900/30'
+      };
+      toast.className = `p-3.5 rounded-xl shadow-lg text-xs font-medium flex items-center space-x-2 space-x-reverse pointer-events-auto transition-all transform translate-y-2 opacity-0 duration-200 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}</span><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 200);
+      }, 4000);
+    }
+
+    // In-App Custom Confirm Modal (replaces browser window.confirm)
+    let confirmResolve = null;
+
+    function askConfirm(title, message, btnText = 'تایید و لغو', icon = '🗑️') {
+      return new Promise((resolve) => {
+        confirmResolve = resolve;
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+        document.getElementById('confirm-ok-btn').textContent = btnText;
+        document.getElementById('confirm-icon').textContent = icon;
+        document.getElementById('confirm-modal').classList.remove('hidden');
+      });
+    }
+
+    function closeConfirmModal(result) {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      if (confirmResolve) {
+        confirmResolve(result);
+        confirmResolve = null;
+      }
+    }
+
+    function onConfirmModalOk() {
+      closeConfirmModal(true);
+    }
+
+    // Tab Switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => {
+        el.classList.remove('border-blue-600', 'text-blue-600', 'dark:text-blue-400');
+        el.classList.add('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+      });
+
+      const targetTab = document.getElementById(`tab-${tabName}`);
+      const targetNav = document.getElementById(`nav-${tabName}`);
+      if (targetTab && targetNav) {
+        targetTab.classList.remove('hidden');
+        targetNav.classList.remove('border-transparent', 'text-slate-500', 'dark:text-slate-400');
+        targetNav.classList.add('border-blue-600', 'text-blue-600', 'dark:text-blue-400');
+      }
+
+      if (tabName === 'trips') loadBookedTrips();
+      if (tabName === 'favorites') loadFavorites();
+      if (tabName === 'auto-settings') loadAutoSettings();
+    }
+
+    // App Initialization
+    async function initApp() {
+      initThemeIcon();
+      await checkAuthStatus();
+      await loadReserveDays();
+      await loadFavorites();
+      await loadBookedTrips();
+    }
+
+    // Auth Status
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/api/status`);
+        const data = await res.json();
+        const dot = document.getElementById('status-dot');
+        const nameEl = document.getElementById('user-display-name');
+        const loginBtn = document.getElementById('auth-action-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (data.logged_in) {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 ml-2';
+          nameEl.textContent = `${data.user_name} (${data.phone || ''})`;
+          loginBtn.classList.add('hidden');
+          logoutBtn.classList.remove('hidden');
+        } else {
+          dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 ml-2';
+          nameEl.textContent = 'وارد نشده‌اید';
+          loginBtn.classList.remove('hidden');
+          logoutBtn.classList.add('hidden');
+        }
+      } catch (err) {
+        console.error('Status error:', err);
+      }
+    }
+
+    // Logout
+    async function handleLogout() {
+      const ok = await askConfirm('خروج از حساب کاربری', 'آیا مایل به خروج از حساب کاربری وانابوم هستید؟', 'خروج از حساب', '🚪');
+      if (!ok) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST' });
+        const data = await res.json();
+        showToast(data.msg, 'info');
+        checkAuthStatus();
+      } catch (err) {
+        showToast('خطا در خروج از حساب', 'error');
+      }
+    }
+
+    // Step 1: Available Days
+    async function loadReserveDays() {
+      const container = document.getElementById('days-container');
+      container.innerHTML = '<div class="col-span-full py-8 text-center text-slate-400 text-xs animate-pulse">در حال استعلام روزهای باز سامانه...</div>';
+      try {
+        const res = await fetch(`${API_BASE}/api/reserve/days`);
+        const data = await res.json();
+        if (!data.ok || !data.tabs || data.tabs.length === 0) {
+          container.innerHTML = '<div class="col-span-full py-8 text-center text-amber-600 dark:text-amber-400 text-xs">در حال حاضر هیچ روزی در سامانه دانشگاه برای رزرو باز نیست.</div>';
+          return;
+        }
+
+        availableDays = data.tabs;
+        if (data.booked) {
+          currentBookedTrips = data.booked;
+          document.getElementById('trips-count-badge').textContent = data.booked.length;
+          const cancelAllCountEl = document.getElementById('cancel-all-count');
+          if (cancelAllCountEl) cancelAllCountEl.textContent = data.booked.length;
+        }
+
+        container.innerHTML = '';
+        availableDays.forEach((day, idx) => {
+          const card = document.createElement('button');
+          const isSelected = selectedDateSlug === day.slug || (idx === 0 && !selectedDateSlug);
+          if (isSelected) {
+            selectedDateSlug = day.slug;
+            selectedDateLabel = day.label;
+          }
+
+          card.className = `p-4 rounded-xl border text-right transition flex flex-col justify-between ${
+            isSelected 
+              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 shadow-sm shadow-blue-500/10' 
+              : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800'
+          }`;
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-slate-900 dark:text-white">${day.label}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full ${isSelected ? 'bg-blue-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}">فعال</span>
+            </div>
+            <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono" dir="ltr">${day.date_dash}</div>
+          `;
+          card.onclick = () => selectDate(day.slug, day.label);
+          container.appendChild(card);
+        });
+
+        document.getElementById('station-section').classList.remove('opacity-50', 'pointer-events-none');
+        loadStations(currentDirection);
+
+      } catch (err) {
+        container.innerHTML = '<div class="col-span-full py-8 text-center text-rose-500 text-xs">خطا در دریافت روزها از سامانه دانشگاه</div>';
+      }
+    }
+
+    function selectDate(slug, label) {
+      selectedDateSlug = slug;
+      selectedDateLabel = label;
+      loadReserveDays();
+      if (selectedStation) {
+        loadTimeSlots();
+      }
+    }
+
+    // Step 2: Direction & Stations
+    function setDirection(dir) {
+      currentDirection = dir;
+      const btnGo = document.getElementById('dir-btn-go');
+      const btnReturn = document.getElementById('dir-btn-return');
+      if (dir === 'go') {
+        btnGo.className = 'px-4 py-1.5 rounded-lg bg-emerald-600 text-white shadow-sm transition';
+        btnReturn.className = 'px-4 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition';
+      } else {
+        btnGo.className = 'px-4 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition';
+        btnReturn.className = 'px-4 py-1.5 rounded-lg bg-blue-600 text-white shadow-sm transition';
+      }
+      loadStations(dir);
+    }
+
+    async function loadStations(dir) {
+      const container = document.getElementById('stations-container');
+      container.innerHTML = '<div class="col-span-full py-6 text-center text-slate-400 text-xs animate-pulse">در حال دریافت لیست ایستگاه‌ها...</div>';
+      try {
+        if (!allStations[dir] || allStations[dir].length === 0) {
+          const res = await fetch(`${API_BASE}/api/reserve/stations?type=${dir}`);
+          const data = await res.json();
+          allStations[dir] = data.stations || [];
+        }
+        renderStations(allStations[dir]);
+        renderFavoriteQuickBar();
+      } catch (err) {
+        container.innerHTML = '<div class="col-span-full py-6 text-center text-rose-500 text-xs">خطا در دریافت ایستگاه‌ها</div>';
+      }
+    }
+
+    function renderFavoriteQuickBar() {
+      const quickContainer = document.getElementById('fav-quick-container');
+      const quickList = document.getElementById('fav-quick-list');
+      const favs = userFavorites.filter(f => f.station_type === currentDirection);
+
+      if (favs.length === 0) {
+        quickContainer.classList.add('hidden');
+        return;
+      }
+
+      quickContainer.classList.remove('hidden');
+      quickList.innerHTML = '';
+      favs.forEach(f => {
+        const btn = document.createElement('button');
+        btn.className = 'px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs font-medium transition flex items-center';
+        btn.innerHTML = `<span>⭐ ${f.station_name}</span>`;
+        btn.onclick = () => selectStationById(f.station_id);
+        quickList.appendChild(btn);
+      });
+    }
+
+    function filterStations() {
+      const query = document.getElementById('station-search').value.trim().toLowerCase();
+      const list = allStations[currentDirection] || [];
+      if (!query) {
+        renderStations(list);
+        return;
+      }
+      const filtered = list.filter(s => s.name.toLowerCase().includes(query) || s.station_name.toLowerCase().includes(query) || s.route_name.toLowerCase().includes(query));
+      renderStations(filtered);
+    }
+
+    function renderStations(stations) {
+      const container = document.getElementById('stations-container');
+      container.innerHTML = '';
+      if (!stations || stations.length === 0) {
+        container.innerHTML = '<div class="col-span-full py-6 text-center text-slate-400 text-xs">هیچ ایستگاهی یافت نشد.</div>';
+        return;
+      }
+
+      const favIds = new Set(userFavorites.filter(f => f.station_type === currentDirection).map(f => f.station_id));
+
+      const sorted = [...stations].sort((a, b) => {
+        const aFav = favIds.has(a.id);
+        const bFav = favIds.has(b.id);
+        if (aFav && !bFav) return -1;
+        if (!aFav && bFav) return 1;
+        return 0;
+      });
+
+      sorted.forEach(st => {
+        const isFav = favIds.has(st.id);
+        const isSelected = selectedStation && selectedStation.id === st.id;
+        const btn = document.createElement('div');
+        btn.className = `p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+          isSelected 
+            ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 shadow-sm' 
+            : isFav 
+              ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 hover:border-amber-400' 
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+        }`;
+        btn.innerHTML = `
+          <div class="flex-1 ml-2" onclick="selectStation('${st.id}')">
+            <div class="flex items-center">
+              ${isFav ? '<span class="text-amber-500 ml-1 text-xs">⭐</span>' : ''}
+              <span class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">${st.station_name}</span>
+            </div>
+            ${st.route_name ? `<div class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">مسیر: ${st.route_name}</div>` : ''}
+          </div>
+          <button onclick="event.stopPropagation(); toggleFavorite('${currentDirection}', '${st.id}', '${st.station_name.replace(/'/g, "\\'")}', '${st.route_name.replace(/'/g, "\\'")}')" class="text-xs p-1 text-slate-400 hover:text-amber-500" title="${isFav ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}">
+            ${isFav ? '⭐' : '☆'}
+          </button>
+        `;
+        container.appendChild(btn);
+      });
+    }
+
+    function selectStationById(id) {
+      const list = allStations[currentDirection] || [];
+      const st = list.find(s => s.id === id);
+      if (st) {
+        selectedStation = st;
+        renderStations(list);
+        loadTimeSlots();
+      }
+    }
+
+    function selectStation(id) {
+      selectStationById(id);
+    }
+
+    // Step 3: Slots
+    async function loadTimeSlots() {
+      if (!selectedStation || !selectedDateSlug) return;
+      const slotsSection = document.getElementById('slots-section');
+      const container = document.getElementById('slots-container');
+      const headerInfo = document.getElementById('slots-header-info');
+
+      slotsSection.classList.remove('opacity-50', 'pointer-events-none');
+      headerInfo.innerHTML = `ایستگاه: <strong class="text-slate-900 dark:text-white">${selectedStation.name}</strong> | تاریخ: <strong class="text-blue-600 dark:text-blue-400">${selectedDateLabel}</strong>`;
+
+      // Check counterpart station in the opposite direction
+      const oppDirection = currentDirection === 'go' ? 'return' : 'go';
+      if (!allStations[oppDirection] || allStations[oppDirection].length === 0) {
+        try {
+          const cRes = await fetch(`${API_BASE}/api/reserve/stations?type=${oppDirection}`);
+          const cData = await cRes.json();
+          allStations[oppDirection] = cData.stations || [];
+        } catch(e) {}
+      }
+
+      const counterpart = findCounterpartStation(selectedStation, oppDirection);
+      const switchBtn = document.getElementById('switch-counterpart-btn');
+      const switchText = document.getElementById('switch-counterpart-text');
+
+      if (counterpart) {
+        if (switchBtn) {
+          switchBtn.classList.remove('hidden');
+          switchText.textContent = `مشاهده ساعت‌های ${oppDirection === 'go' ? 'رفت' : 'برگشت'} (${counterpart.station_name})`;
+        }
+        headerInfo.innerHTML = `ایستگاه ${currentDirection === 'go' ? 'رفت' : 'برگشت'}: <strong class="text-slate-900 dark:text-white">${selectedStation.name}</strong> &bull; متناظر ${oppDirection === 'go' ? 'رفت' : 'برگشت'}: <strong class="text-purple-600 dark:text-purple-400">${counterpart.route_name || counterpart.name}</strong> &bull; تاریخ: <strong class="text-blue-600 dark:text-blue-400">${selectedDateLabel}</strong>`;
+      } else {
+        if (switchBtn) switchBtn.classList.add('hidden');
+      }
+
+      container.innerHTML = '<div class="col-span-full py-8 text-center text-slate-400 text-xs animate-pulse">در حال دریافت ساعت‌های فعال از سرور...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/reserve/slots?date_slug=${selectedDateSlug}&station_id=${selectedStation.id}&type=${currentDirection}`);
+        const data = await res.json();
+        if (!data.ok || !data.slots || data.slots.length === 0) {
+          container.innerHTML = '<div class="col-span-full py-8 text-center text-amber-600 dark:text-amber-400 text-xs">هیچ زمان خالی برای این ایستگاه در این تاریخ یافت نشد.</div>';
+          return;
+        }
+
+        currentSlots = data.slots;
+        renderSlots();
+      } catch (err) {
+        container.innerHTML = '<div class="col-span-full py-8 text-center text-rose-500 text-xs">خطا در دریافت ساعت‌ها</div>';
+      }
+    }
+
+    function renderSlots() {
+      const container = document.getElementById('slots-container');
+      container.innerHTML = '';
+
+      const stName = selectedStation ? selectedStation.station_name : '';
+      const bookedForThisStation = currentBookedTrips.filter(t => {
+        const matchesDate = !selectedDateSlug || t.slug === selectedDateSlug;
+        const matchesSt = stName && (t.info.includes(stName) || (selectedStation.name && t.info.includes(selectedStation.name)));
+        return matchesDate && matchesSt && t.r_id;
+      });
+
+      const cancelBtn = document.getElementById('cancel-all-station-btn');
+      if (cancelBtn) {
+        if (bookedForThisStation.length > 0) {
+          cancelBtn.innerHTML = `🗑️ کنسل رزروهای این ایستگاه (${bookedForThisStation.length})`;
+          cancelBtn.className = 'text-xs px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-sm shadow-rose-500/20 transition flex items-center';
+        } else {
+          cancelBtn.innerHTML = `🗑️ کنسل همه ساعت‌های این ایستگاه`;
+          cancelBtn.className = 'text-xs px-3.5 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-700 text-white font-medium shadow-sm transition flex items-center';
+        }
+      }
+
+      currentSlots.forEach(slot => {
+        const timeStr = extractTime(slot.label, slot.value);
+        const slotKey = `${selectedDateSlug}_${currentDirection}_${selectedStation.id}_${slot.value}`;
+        const isSelected = userCart.some(item => item.id === slotKey);
+
+        const bookedTrip = bookedForThisStation.find(t => t.info.includes(timeStr));
+
+        const card = document.createElement('div');
+        if (bookedTrip) {
+          card.className = 'p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/30 text-slate-800 dark:text-slate-100 transition flex items-center justify-between shadow-sm';
+          card.innerHTML = `
+            <div class="flex items-center space-x-3 space-x-reverse flex-1">
+              <span class="text-base text-emerald-600">✅</span>
+              <div>
+                <div class="text-xs sm:text-sm font-bold font-mono">${slot.label}</div>
+                <div class="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">ثبت‌شده در وانابوم</div>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); cancelTrip('${bookedTrip.r_id}', this)" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 hover:bg-rose-200 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 transition">
+              ❌ لغو این رزرو
+            </button>
+          `;
+        } else {
+          card.className = `p-3.5 rounded-xl border cursor-pointer transition flex items-center justify-between ${
+            isSelected 
+              ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20' 
+              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-800 dark:text-slate-200'
+          }`;
+          card.innerHTML = `
+            <div class="flex items-center space-x-3 space-x-reverse flex-1">
+              <span class="text-base">${isSelected ? '✅' : '▫️'}</span>
+              <div>
+                <div class="text-xs sm:text-sm font-bold font-mono">${slot.label}</div>
+              </div>
+            </div>
+            <span class="text-[11px] font-medium px-2 py-0.5 rounded ${isSelected ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}">
+              ${isSelected ? 'انتخاب شده' : 'رزرو'}
+            </span>
+          `;
+          card.onclick = () => toggleSlotCart(slot);
+        }
+        container.appendChild(card);
+      });
+    }
+
+    function extractTime(label, val) {
+      const m = label.match(/(\d{1,2}[:_]\d{2})/);
+      if (m) return m[1].replace('_', ':');
+      const m2 = val.match(/(\d{1,2}[:_]\d{2})/);
+      if (m2) return m2[1].replace('_', ':');
+      return label.slice(0, 10);
+    }
+
+    function toggleSlotCart(slot) {
+      const slotKey = `${selectedDateSlug}_${currentDirection}_${selectedStation.id}_${slot.value}`;
+      const existingIdx = userCart.findIndex(item => item.id === slotKey);
+
+      if (existingIdx >= 0) {
+        userCart.splice(existingIdx, 1);
+        showToast('از انتخاب‌ها برداشته شد', 'info');
+      } else {
+        const timeStr = extractTime(slot.label, slot.value);
+        userCart.push({
+          id: slotKey,
+          date_slug: selectedDateSlug,
+          date_label: selectedDateLabel,
+          station_type: currentDirection,
+          station_id: selectedStation.id,
+          station_name: selectedStation.station_name,
+          route_name: selectedStation.route_name,
+          slot_val: slot.value,
+          slot_label: slot.label,
+          time_str: timeStr
+        });
+        showToast(`ساعت ${timeStr} به سبد افزوده شد`, 'success');
+      }
+
+      updateCartBadge();
+      renderSlots();
+    }
+
+    // Select all slots for currently selected station
+    function selectAllSlotsForStation() {
+      if (!selectedStation || currentSlots.length === 0) {
+        showToast('هیچ ساعتی برای این ایستگاه موجود نیست', 'warning');
+        return;
+      }
+      let added = 0;
+      currentSlots.forEach(slot => {
+        const slotKey = `${selectedDateSlug}_${currentDirection}_${selectedStation.id}_${slot.value}`;
+        if (!userCart.some(item => item.id === slotKey)) {
+          const timeStr = extractTime(slot.label, slot.value);
+          userCart.push({
+            id: slotKey,
+            date_slug: selectedDateSlug,
+            date_label: selectedDateLabel,
+            station_type: currentDirection,
+            station_id: selectedStation.id,
+            station_name: selectedStation.station_name,
+            route_name: selectedStation.route_name,
+            slot_val: slot.value,
+            slot_label: slot.label,
+            time_str: timeStr
+          });
+          added++;
+        }
+      });
+      updateCartBadge();
+      renderSlots();
+      showToast(`تمام ساعت‌های این ایستگاه (${currentSlots.length} مورد) به سبد اضافه شدند`, 'success');
+    }
+
+    // Deselect all slots for currently selected station
+    function deselectAllSlotsForStation() {
+      if (!selectedStation) return;
+      userCart = userCart.filter(item => !(item.station_id === selectedStation.id && item.date_slug === selectedDateSlug && item.station_type === currentDirection));
+      updateCartBadge();
+      renderSlots();
+      showToast('انتخاب ساعت‌های این ایستگاه لغو شد', 'info');
+    }
+
+    // Direct 1-click reserve all slots for currently selected station
+    async function reserveAllSlotsForStationNow() {
+      if (!selectedStation || currentSlots.length === 0) {
+        showToast('هیچ ساعتی برای این ایستگاه یافت نشد', 'warning');
+        return;
+      }
+      const items = currentSlots.map(slot => {
+        const slotKey = `${selectedDateSlug}_${currentDirection}_${selectedStation.id}_${slot.value}`;
+        const timeStr = extractTime(slot.label, slot.value);
+        return {
+          id: slotKey,
+          date_slug: selectedDateSlug,
+          date_label: selectedDateLabel,
+          station_type: currentDirection,
+          station_id: selectedStation.id,
+          station_name: selectedStation.station_name,
+          route_name: selectedStation.route_name,
+          slot_val: slot.value,
+          slot_label: slot.label,
+          time_str: timeStr
+        };
+      });
+
+      const ok = await askConfirm(
+        'رزرو سریع همه ساعت‌های ایستگاه',
+        `آیا مایل به رزرو فوری تمام ساعت‌های موجود (${items.length} مورد) برای ایستگاه «${selectedStation.name}» در سامانه وانابوم هستید؟`,
+        `بله، ثبت رزرو همه (${items.length})`,
+        '🚀'
+      );
+      if (!ok) return;
+
+      await executeReservationProcess(items);
+    }
+
+    // Counterpart Matching Algorithm
+    function findCounterpartStation(st, targetType) {
+      if (!st) return null;
+      const type = targetType || (currentDirection === 'go' ? 'return' : 'go');
+      const targetList = allStations[type] || [];
+      const name = st.station_name;
+      const route = st.route_name || '';
+
+      const candidates = targetList.filter(s => s.station_name === name);
+      if (candidates.length === 1) return candidates[0];
+      if (candidates.length > 1) {
+        if (route.includes('کمالوند') && !route.includes('کشاورزی')) {
+          const found = candidates.find(c => (c.route_name || '').includes('کمالوند به'));
+          if (found) return found;
+        } else if (route.includes('کشاورزی')) {
+          const found = candidates.find(c => (c.route_name || '').includes('کشاورزی به'));
+          if (found) return found;
+        }
+        return candidates[0];
+      }
+      return null;
+    }
+
+    function switchDirectionCounterpart() {
+      const oppDirection = currentDirection === 'go' ? 'return' : 'go';
+      const counterpart = findCounterpartStation(selectedStation, oppDirection);
+      if (!counterpart) {
+        showToast('ایستگاه متناظر برای جهت معکوس یافت نشد', 'warning');
+        return;
+      }
+      setDirection(oppDirection);
+      selectStationById(counterpart.id);
+      showToast(`به مسیر ${oppDirection === 'go' ? 'رفت' : 'برگشت'}: «${counterpart.station_name}» تغییر یافت`, 'info');
+    }
+
+    // Direct 1-click reserve all slots for both Go and Return of currently selected station
+    async function reserveRoundTripAllNow() {
+      if (!selectedStation) {
+        showToast('لطفاً ابتدا یک ایستگاه را انتخاب کنید', 'warning');
+        return;
+      }
+      const oppDirection = currentDirection === 'go' ? 'return' : 'go';
+      if (!allStations[oppDirection] || allStations[oppDirection].length === 0) {
+        try {
+          const cRes = await fetch(`${API_BASE}/api/reserve/stations?type=${oppDirection}`);
+          const cData = await cRes.json();
+          allStations[oppDirection] = cData.stations || [];
+        } catch(e) {}
+      }
+
+      const goStation = currentDirection === 'go' ? selectedStation : findCounterpartStation(selectedStation, 'go');
+      const retStation = currentDirection === 'return' ? selectedStation : findCounterpartStation(selectedStation, 'return');
+
+      if (!goStation || !retStation) {
+        showToast('ایستگاه متناظر برای رفت و برگشت یافت نشد', 'warning');
+        return;
+      }
+
+      showToast('در حال استعلام ساعت‌های رفت و برگشت...', 'info');
+
+      try {
+        const [resGo, resRet] = await Promise.all([
+          fetch(`${API_BASE}/api/reserve/slots?date_slug=${selectedDateSlug}&station_id=${goStation.id}&type=go`).then(r => r.json()),
+          fetch(`${API_BASE}/api/reserve/slots?date_slug=${selectedDateSlug}&station_id=${retStation.id}&type=return`).then(r => r.json())
+        ]);
+
+        const goSlots = (resGo.ok && resGo.slots) ? resGo.slots : [];
+        const retSlots = (resRet.ok && resRet.slots) ? resRet.slots : [];
+
+        if (goSlots.length === 0 && retSlots.length === 0) {
+          showToast('هیچ ساعتی برای رفت و برگشت این ایستگاه یافت نشد', 'warning');
+          return;
+        }
+
+        const items = [];
+        goSlots.forEach(s => {
+          const slotKey = `${selectedDateSlug}_go_${goStation.id}_${s.value}`;
+          const timeStr = extractTime(s.label, s.value);
+          items.push({
+            id: slotKey,
+            date_slug: selectedDateSlug,
+            date_label: selectedDateLabel,
+            station_type: 'go',
+            station_id: goStation.id,
+            station_name: goStation.station_name,
+            route_name: goStation.route_name,
+            slot_val: s.value,
+            slot_label: s.label,
+            time_str: timeStr
+          });
+        });
+
+        retSlots.forEach(s => {
+          const slotKey = `${selectedDateSlug}_return_${retStation.id}_${s.value}`;
+          const timeStr = extractTime(s.label, s.value);
+          items.push({
+            id: slotKey,
+            date_slug: selectedDateSlug,
+            date_label: selectedDateLabel,
+            station_type: 'return',
+            station_id: retStation.id,
+            station_name: retStation.station_name,
+            route_name: retStation.route_name,
+            slot_val: s.value,
+            slot_label: s.label,
+            time_str: timeStr
+          });
+        });
+
+        const ok = await askConfirm(
+          'رزرو یکجای رفت و برگشت',
+          `آیا مایل به رزرو همزمان ${goSlots.length} ساعت رفت و ${retSlots.length} ساعت برگشت (مجموعاً ${items.length} سرویس) برای ایستگاه «${selectedStation.station_name}» در سامانه وانابوم هستید؟`,
+          `بله، ثبت رزرو رفت و برگشت (${items.length} سرویس)`,
+          '🔁'
+        );
+        if (!ok) return;
+
+        await executeReservationProcess(items);
+      } catch (err) {
+        showToast('خطا در دریافت ساعت‌های رفت و برگشت', 'error');
+      }
+    }
+
+    // Round-Trip Interactive Picker Modal
+    let roundTripModalGoSlots = [];
+    let roundTripModalRetSlots = [];
+    let roundTripModalSelectedGo = new Set();
+    let roundTripModalSelectedRet = new Set();
+    let roundTripGoStation = null;
+    let roundTripRetStation = null;
+
+    async function openRoundTripPickerModal() {
+      if (!selectedStation) {
+        showToast('لطفاً ابتدا یک ایستگاه را انتخاب کنید', 'warning');
+        return;
+      }
+
+      const oppDirection = currentDirection === 'go' ? 'return' : 'go';
+      if (!allStations[oppDirection] || allStations[oppDirection].length === 0) {
+        try {
+          const cRes = await fetch(`${API_BASE}/api/reserve/stations?type=${oppDirection}`);
+          const cData = await cRes.json();
+          allStations[oppDirection] = cData.stations || [];
+        } catch(e) {}
+      }
+
+      roundTripGoStation = currentDirection === 'go' ? selectedStation : findCounterpartStation(selectedStation, 'go');
+      roundTripRetStation = currentDirection === 'return' ? selectedStation : findCounterpartStation(selectedStation, 'return');
+
+      if (!roundTripGoStation || !roundTripRetStation) {
+        showToast('ایستگاه متناظر برای رفت و برگشت یافت نشد', 'warning');
+        return;
+      }
+
+      document.getElementById('roundtrip-go-station-name').textContent = `رفت: ${roundTripGoStation.station_name}`;
+      document.getElementById('roundtrip-go-route-name').textContent = roundTripGoStation.route_name || '';
+      document.getElementById('roundtrip-ret-station-name').textContent = `برگشت: ${roundTripRetStation.station_name}`;
+      document.getElementById('roundtrip-ret-route-name').textContent = roundTripRetStation.route_name || '';
+      document.getElementById('roundtrip-modal-subtitle').textContent = `ایستگاه: ${selectedStation.station_name} | تاریخ سرویس: ${selectedDateLabel}`;
+
+      roundTripModalSelectedGo.clear();
+      roundTripModalSelectedRet.clear();
+      updateRoundTripModalSummary();
+
+      document.getElementById('roundtrip-go-slots-list').innerHTML = '<div class="text-center py-6 text-xs text-slate-400 animate-pulse">در حال دریافت ساعت‌های رفت...</div>';
+      document.getElementById('roundtrip-ret-slots-list').innerHTML = '<div class="text-center py-6 text-xs text-slate-400 animate-pulse">در حال دریافت ساعت‌های برگشت...</div>';
+
+      document.getElementById('roundtrip-modal').classList.remove('hidden');
+
+      try {
+        const [resGo, resRet] = await Promise.all([
+          fetch(`${API_BASE}/api/reserve/slots?date_slug=${selectedDateSlug}&station_id=${roundTripGoStation.id}&type=go`).then(r => r.json()),
+          fetch(`${API_BASE}/api/reserve/slots?date_slug=${selectedDateSlug}&station_id=${roundTripRetStation.id}&type=return`).then(r => r.json())
+        ]);
+
+        roundTripModalGoSlots = (resGo.ok && resGo.slots) ? resGo.slots : [];
+        roundTripModalRetSlots = (resRet.ok && resRet.slots) ? resRet.slots : [];
+
+        renderRoundTripModalColumn('go');
+        renderRoundTripModalColumn('return');
+      } catch (err) {
+        showToast('خطا در بارگذاری ساعت‌های رفت و برگشت', 'error');
+      }
+    }
+
+    function closeRoundTripModal() {
+      document.getElementById('roundtrip-modal').classList.add('hidden');
+    }
+
+    function renderRoundTripModalColumn(type) {
+      const container = document.getElementById(type === 'go' ? 'roundtrip-go-slots-list' : 'roundtrip-ret-slots-list');
+      const slots = type === 'go' ? roundTripModalGoSlots : roundTripModalRetSlots;
+      const selectedSet = type === 'go' ? roundTripModalSelectedGo : roundTripModalSelectedRet;
+      const st = type === 'go' ? roundTripGoStation : roundTripRetStation;
+
+      container.innerHTML = '';
+      if (!slots || slots.length === 0) {
+        container.innerHTML = `<div class="text-center py-6 text-xs text-amber-600 dark:text-amber-400">هیچ ساعتی برای ${type === 'go' ? 'رفت' : 'برگشت'} در این تاریخ یافت نشد.</div>`;
+        return;
+      }
+
+      slots.forEach(s => {
+        const timeStr = extractTime(s.label, s.value);
+        const isChecked = selectedSet.has(s.value);
+        const booked = currentBookedTrips.some(t => (!selectedDateSlug || t.slug === selectedDateSlug) && t.info.includes(timeStr) && (t.info.includes(st.station_name) || t.info.includes(st.name)));
+
+        const card = document.createElement('div');
+        if (booked) {
+          card.className = 'p-2.5 rounded-xl border border-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/30 flex items-center justify-between text-xs text-slate-800 dark:text-slate-100';
+          card.innerHTML = `
+            <div class="flex items-center space-x-2 space-x-reverse">
+              <span class="text-emerald-600">✅</span>
+              <span class="font-bold font-mono">${timeStr}</span>
+              <span class="text-[11px] text-emerald-700 dark:text-emerald-400 mr-2">قبلاً رزرو شده</span>
+            </div>
+          `;
+        } else {
+          card.className = `p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between text-xs ${
+            isChecked 
+              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 text-slate-800 dark:text-slate-200'
+          }`;
+          card.innerHTML = `
+            <div class="flex items-center space-x-2 space-x-reverse">
+              <span>${isChecked ? '☑️' : '▫️'}</span>
+              <span class="font-bold font-mono">${timeStr}</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded ${isChecked ? 'bg-indigo-700 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}">
+              ${isChecked ? 'انتخاب‌شده' : 'انتخاب'}
+            </span>
+          `;
+          card.onclick = () => {
+            if (selectedSet.has(s.value)) {
+              selectedSet.delete(s.value);
+            } else {
+              selectedSet.add(s.value);
+            }
+            updateRoundTripModalSummary();
+            renderRoundTripModalColumn(type);
+          };
+        }
+        container.appendChild(card);
+      });
+    }
+
+    function toggleSelectAllModalColumn(type) {
+      const slots = type === 'go' ? roundTripModalGoSlots : roundTripModalRetSlots;
+      const selectedSet = type === 'go' ? roundTripModalSelectedGo : roundTripModalSelectedRet;
+      const st = type === 'go' ? roundTripGoStation : roundTripRetStation;
+
+      const unbookedSlots = slots.filter(s => {
+        const timeStr = extractTime(s.label, s.value);
+        return !currentBookedTrips.some(t => (!selectedDateSlug || t.slug === selectedDateSlug) && t.info.includes(timeStr) && (t.info.includes(st.station_name) || t.info.includes(st.name)));
+      });
+
+      if (selectedSet.size >= unbookedSlots.length && unbookedSlots.length > 0) {
+        selectedSet.clear();
+      } else {
+        unbookedSlots.forEach(s => selectedSet.add(s.value));
+      }
+      updateRoundTripModalSummary();
+      renderRoundTripModalColumn(type);
+    }
+
+    function updateRoundTripModalSummary() {
+      const summaryEl = document.getElementById('roundtrip-selected-summary');
+      if (summaryEl) {
+        summaryEl.textContent = `${roundTripModalSelectedGo.size} رفت + ${roundTripModalSelectedRet.size} برگشت`;
+      }
+    }
+
+    function getSelectedRoundTripItems() {
+      const items = [];
+      roundTripModalSelectedGo.forEach(val => {
+        const s = roundTripModalGoSlots.find(slot => slot.value === val);
+        if (s) {
+          const slotKey = `${selectedDateSlug}_go_${roundTripGoStation.id}_${s.value}`;
+          const timeStr = extractTime(s.label, s.value);
+          items.push({
+            id: slotKey,
+            date_slug: selectedDateSlug,
+            date_label: selectedDateLabel,
+            station_type: 'go',
+            station_id: roundTripGoStation.id,
+            station_name: roundTripGoStation.station_name,
+            route_name: roundTripGoStation.route_name,
+            slot_val: s.value,
+            slot_label: s.label,
+            time_str: timeStr
+          });
+        }
+      });
+
+      roundTripModalSelectedRet.forEach(val => {
+        const s = roundTripModalRetSlots.find(slot => slot.value === val);
+        if (s) {
+          const slotKey = `${selectedDateSlug}_return_${roundTripRetStation.id}_${s.value}`;
+          const timeStr = extractTime(s.label, s.value);
+          items.push({
+            id: slotKey,
+            date_slug: selectedDateSlug,
+            date_label: selectedDateLabel,
+            station_type: 'return',
+            station_id: roundTripRetStation.id,
+            station_name: roundTripRetStation.station_name,
+            route_name: roundTripRetStation.route_name,
+            slot_val: s.value,
+            slot_label: s.label,
+            time_str: timeStr
+          });
+        }
+      });
+      return items;
+    }
+
+    function addRoundTripToCart() {
+      const items = getSelectedRoundTripItems();
+      if (items.length === 0) {
+        showToast('لطفاً حداقل یک ساعت رفت یا برگشت را انتخاب کنید', 'warning');
+        return;
+      }
+      let added = 0;
+      items.forEach(it => {
+        if (!userCart.some(c => c.id === it.id)) {
+          userCart.push(it);
+          added++;
+        }
+      });
+      updateCartBadge();
+      renderSlots();
+      closeRoundTripModal();
+      showToast(`${added} سرویس رفت و برگشت به سبد اضافه شدند`, 'success');
+    }
+
+    async function submitRoundTripDirectReserve() {
+      const items = getSelectedRoundTripItems();
+      if (items.length === 0) {
+        showToast('لطفاً حداقل یک ساعت رفت یا برگشت را انتخاب کنید', 'warning');
+        return;
+      }
+      closeRoundTripModal();
+      await executeReservationProcess(items);
+    }
+
+    // Mobile Guide Modal
+    async function openMobileGuideModal() {
+      try {
+        const res = await fetch(`${API_BASE}/api/system/network`);
+        const data = await res.json();
+        const display = document.getElementById('mobile-lan-url-display');
+        if (data.ok && data.mobile_url) {
+          display.textContent = data.mobile_url;
+        } else {
+          display.textContent = `http://${window.location.hostname}:8000`;
+        }
+      } catch (e) {
+        const display = document.getElementById('mobile-lan-url-display');
+        if (display) display.textContent = `http://${window.location.hostname}:8000`;
+      }
+      document.getElementById('mobile-guide-modal').classList.remove('hidden');
+    }
+
+    function closeMobileGuideModal() {
+      document.getElementById('mobile-guide-modal').classList.add('hidden');
+    }
+
+    function copyLanUrl() {
+      const text = document.getElementById('mobile-lan-url-display').textContent.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('آدرس کپی شد! در مرورگر موبایل خود وارد کنید.', 'success');
+      }).catch(() => {
+        showToast('لطفاً آدرس را به صورت دستی کپی کنید.', 'info');
+      });
+    }
+
+    // Direct 1-click cancel all slots for currently selected station
+    async function cancelAllSlotsForStationNow() {
+      if (!selectedStation) {
+        showToast('لطفاً ابتدا یک ایستگاه را انتخاب کنید', 'warning');
+        return;
+      }
+
+      // Refresh active trips first to ensure we have the absolute latest status
+      try {
+        const res = await fetch(`${API_BASE}/api/trips`);
+        const data = await res.json();
+        if (data.ok && data.trips) {
+          currentBookedTrips = data.trips;
+          document.getElementById('trips-count-badge').textContent = data.trips.length;
+          const cancelAllCountEl = document.getElementById('cancel-all-count');
+          if (cancelAllCountEl) cancelAllCountEl.textContent = data.trips.length;
+        }
+      } catch (e) {}
+
+      const stName = selectedStation.station_name;
+      let matchingTrips = currentBookedTrips.filter(t => {
+        const matchesDate = !selectedDateSlug || t.slug === selectedDateSlug;
+        const matchesSt = stName && (t.info.includes(stName) || (selectedStation.name && t.info.includes(selectedStation.name)));
+        return matchesDate && matchesSt && t.r_id;
+      });
+
+      if (matchingTrips.length === 0) {
+        const anyDateMatching = currentBookedTrips.filter(t => stName && (t.info.includes(stName) || (selectedStation.name && t.info.includes(selectedStation.name))) && t.r_id);
+        if (anyDateMatching.length > 0) {
+          const ok = await askConfirm(
+            'لغو رزروهای ایستگاه',
+            `برای تاریخ انتخاب‌شده سفری ثبت نشده، اما ${anyDateMatching.length} سفر در سایر روزها برای «${stName}» وجود دارد. آیا مایل به لغو آن‌ها هستید؟`,
+            `بله، لغو تمام ${anyDateMatching.length} سفر`,
+            '🗑️'
+          );
+          if (ok) {
+            await executeCancellationProcess(anyDateMatching, `در حال لغو سفرهای ایستگاه «${stName}»...`);
+          }
+          return;
+        }
+
+        if (currentBookedTrips.length > 0) {
+          const ok = await askConfirm(
+            'لغو کلیه سفرهای فعال',
+            `برای ایستگاه «${stName}» سفری ثبت نشده، اما شما در مجموع ${currentBookedTrips.length} سفر رزروشده دیگر در سامانه دارید. آیا می‌خواهید تمام سفرهای فعال را لغو کنید؟`,
+            `بله، لغو همه (${currentBookedTrips.length} مورد)`,
+            '🗑️'
+          );
+          if (ok) {
+            await executeCancellationProcess(currentBookedTrips.filter(t => t.r_id), 'در حال لغو کلیه سفرهای رزروشده...');
+          }
+          return;
+        }
+
+        showToast(`هیچ سفر رزروشده‌ای برای ایستگاه «${stName}» در سامانه یافت نشد.`, 'warning');
+        return;
+      }
+
+      const ok = await askConfirm(
+        'لغو همه ساعت‌های این ایستگاه',
+        `آیا مایل به لغو تمام ${matchingTrips.length} سفر رزروشده برای ایستگاه «${stName}» در سامانه وانابوم هستید؟`,
+        `بله، لغو ${matchingTrips.length} سفر`,
+        '🗑️'
+      );
+      if (!ok) return;
+
+      await executeCancellationProcess(matchingTrips, `در حال لغو سفرهای ایستگاه «${stName}»...`);
+    }
+
+    function updateCartBadge() {
+      const count = userCart.length;
+      document.getElementById('cart-badge-count').textContent = count;
+      document.getElementById('cart-item-count').textContent = count;
+      document.getElementById('modal-cart-count').textContent = count;
+      if (count > 0) {
+        document.getElementById('cart-badge-count').classList.remove('hidden');
+      } else {
+        document.getElementById('cart-badge-count').classList.add('hidden');
+      }
+    }
+
+    // Cart Modal
+    function openCartModal() {
+      const list = document.getElementById('cart-items-list');
+      list.innerHTML = '';
+
+      if (userCart.length === 0) {
+        list.innerHTML = '<div class="py-12 text-center text-slate-400 text-xs">سبد رزرو شما خالی است. لطفاً حداقل یک سرویس را علامت بزنید.</div>';
+      } else {
+        userCart.forEach((item, idx) => {
+          const el = document.createElement('div');
+          el.className = 'p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between text-xs';
+          el.innerHTML = `
+            <div>
+              <div class="font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                <span>${item.station_type === 'go' ? '🟢 رفت' : '🔵 برگشت'}:</span>
+                <span class="mr-1">${item.station_name}</span>
+                ${item.route_name ? `<span class="text-slate-500 dark:text-slate-400 font-normal mr-1">(${item.route_name})</span>` : ''}
+              </div>
+              <div class="text-slate-500 dark:text-slate-400 mt-1">
+                <span>📅 ${item.date_label}</span> | <span>⏰ ساعت: <strong>${item.time_str}</strong></span>
+              </div>
+            </div>
+            <button onclick="removeCartItem(${idx})" class="text-rose-500 hover:text-rose-700 p-1.5 text-xs font-bold">
+              ❌ حذف
+            </button>
+          `;
+          list.appendChild(el);
+        });
+      }
+
+      document.getElementById('cart-modal').classList.remove('hidden');
+    }
+
+    function closeCartModal() {
+      document.getElementById('cart-modal').classList.add('hidden');
+    }
+
+    function removeCartItem(idx) {
+      userCart.splice(idx, 1);
+      updateCartBadge();
+      openCartModal();
+      renderSlots();
+    }
+
+    function clearCart() {
+      userCart = [];
+      updateCartBadge();
+      openCartModal();
+      renderSlots();
+      showToast('سبد رزرو خالی شد', 'info');
+    }
+
+    async function submitBatchReserve() {
+      if (userCart.length === 0) {
+        showToast('هیچ موردی در سبد رزرو وجود ندارد', 'warning');
+        return;
+      }
+      closeCartModal();
+      await executeReservationProcess([...userCart]);
+    }
+
+    // Core Reservation Process with Live Loading, Step-by-Step Progress & Animation
+    async function executeReservationProcess(items) {
+      if (!items || items.length === 0) return;
+
+      const modal = document.getElementById('reserve-progress-modal');
+      const progressTitle = document.getElementById('progress-title');
+      const progressSubtitle = document.getElementById('progress-subtitle');
+      const stepText = document.getElementById('progress-step-text');
+      const percentText = document.getElementById('progress-percent');
+      const barFill = document.getElementById('progress-bar-fill');
+      const currentAction = document.getElementById('progress-current-action');
+      const logsContainer = document.getElementById('progress-logs-container');
+      const footer = document.getElementById('progress-footer');
+      const summaryBadge = document.getElementById('progress-summary-badge');
+      const spinner = document.getElementById('progress-spinner');
+      const icon = document.getElementById('progress-icon');
+
+      // Initialize UI
+      modal.classList.remove('hidden');
+      footer.classList.add('hidden');
+      logsContainer.innerHTML = '';
+      spinner.classList.remove('hidden');
+      icon.className = 'w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-2xl shadow-inner animate-bounce';
+      icon.innerHTML = '🚌';
+      barFill.className = 'bg-gradient-to-r from-blue-600 to-indigo-600 h-full rounded-full transition-all duration-300';
+      barFill.style.width = '0%';
+      progressTitle.textContent = 'در حال ثبت رزرو در سامانه وانابوم...';
+      progressSubtitle.textContent = 'درخواست‌ها مستقیماً با آی‌پی ایران و دور زدن وی‌پی‌ان به سرور دانشگاه ارسال می‌شوند.';
+
+      const total = items.length;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < total; i++) {
+        const item = items[i];
+        const stepNum = i + 1;
+        const currentPercent = Math.round(((i) / total) * 100);
+
+        stepText.textContent = `مورد ${stepNum} از ${total}`;
+        percentText.textContent = `${currentPercent}٪`;
+        barFill.style.width = `${currentPercent}%`;
+        currentAction.textContent = `در حال ثبت: ${item.station_name} (ساعت ${item.time_str})...`;
+
+        // Create log item placeholder
+        const logItem = document.createElement('div');
+        logItem.className = 'p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs flex items-center justify-between animate-pulse';
+        logItem.innerHTML = `
+          <div class="flex items-center space-x-2 space-x-reverse">
+            <span class="text-slate-400 font-mono">⏳</span>
+            <span class="font-bold text-slate-800 dark:text-slate-200">${item.station_name}</span>
+            <span class="text-slate-500 dark:text-slate-400 font-mono">ساعت ${item.time_str}</span>
+          </div>
+          <span class="text-[11px] text-slate-400">در حال ارسال...</span>
+        `;
+        logsContainer.appendChild(logItem);
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/reserve/single`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              date_slug: item.date_slug,
+              station_type: item.station_type,
+              station_id: item.station_id,
+              slot_val: item.slot_val
+            })
+          });
+
+          // Fallback to /api/reserve/batch if single is not loaded
+          if (res.status === 404) {
+            logItem.remove();
+            currentAction.textContent = 'در حال ثبت در سامانه وانابوم (اتصال مستقیم)...';
+
+            const remainingItems = items.slice(i);
+            const batchRes = await fetch(`${API_BASE}/api/reserve/batch`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ items: remainingItems })
+            });
+            const batchData = await batchRes.json();
+
+            if (batchData.ok && batchData.results) {
+              batchData.results.forEach(r => {
+                const bItem = r.item || {};
+                const bOk = r.ok;
+                const bMsg = r.msg || (bOk ? 'رزرو با موفقیت انجام شد.' : 'خطا در ثبت');
+                if (bOk) successCount++; else failCount++;
+
+                const bLog = document.createElement('div');
+                bLog.className = `p-2.5 rounded-xl ${bOk ? 'bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800'} text-xs flex items-center justify-between`;
+                bLog.innerHTML = `
+                  <div class="flex items-center space-x-2 space-x-reverse">
+                    <span class="${bOk ? 'text-emerald-600' : 'text-rose-600'} font-bold">${bOk ? '✅' : '❌'}</span>
+                    <span class="font-bold ${bOk ? 'text-emerald-950 dark:text-emerald-300' : 'text-rose-950 dark:text-rose-300'}">${bItem.station_name || item.station_name}</span>
+                    <span class="${bOk ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'} font-mono">ساعت ${bItem.time_str || item.time_str}</span>
+                  </div>
+                  <span class="text-[11px] ${bOk ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'} font-medium">${bMsg}</span>
+                `;
+                logsContainer.appendChild(bLog);
+              });
+            } else {
+              failCount += remainingItems.length;
+              showToast(`خطا: ${batchData.detail || batchData.msg || 'خطا در ثبت رزرو'}`, 'error');
+            }
+            break;
+          }
+
+          const data = await res.json();
+
+          if (data.ok) {
+            successCount++;
+            logItem.className = 'p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between';
+            logItem.innerHTML = `
+              <div class="flex items-center space-x-2 space-x-reverse">
+                <span class="text-emerald-600 font-bold">✅</span>
+                <span class="font-bold text-emerald-950 dark:text-emerald-300">${item.station_name}</span>
+                <span class="text-emerald-700 dark:text-emerald-400 font-mono">ساعت ${item.time_str}</span>
+              </div>
+              <span class="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">${data.msg || 'رزرو موفق'}</span>
+            `;
+          } else {
+            failCount++;
+            logItem.className = 'p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs flex items-center justify-between';
+            logItem.innerHTML = `
+              <div class="flex items-center space-x-2 space-x-reverse">
+                <span class="text-rose-600 font-bold">❌</span>
+                <span class="font-bold text-rose-950 dark:text-rose-300">${item.station_name}</span>
+                <span class="text-rose-700 dark:text-rose-400 font-mono">ساعت ${item.time_str}</span>
+              </div>
+              <span class="text-[11px] text-rose-700 dark:text-rose-400 font-medium">${data.msg || 'خطا در ثبت'}</span>
+            `;
+          }
+        } catch (err) {
+          failCount++;
+          logItem.className = 'p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs flex items-center justify-between';
+          logItem.innerHTML = `
+            <div class="flex items-center space-x-2 space-x-reverse">
+              <span class="text-rose-600 font-bold">❌</span>
+              <span class="font-bold text-rose-950 dark:text-rose-300">${item.station_name}</span>
+              <span class="text-rose-700 dark:text-rose-400 font-mono">ساعت ${item.time_str}</span>
+            </div>
+            <span class="text-[11px] text-rose-700 dark:text-rose-400 font-medium">خطای ارتباط شبکه</span>
+          `;
+        }
+
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+        await new Promise(r => setTimeout(r, 250));
+      }
+
+      // Finish state
+      stepText.textContent = `مورد ${total} از ${total}`;
+      percentText.textContent = '۱۰۰٪';
+      barFill.style.width = '100%';
+      barFill.className = 'bg-emerald-600 h-full rounded-full transition-all duration-300';
+      currentAction.textContent = 'تمام درخواست‌ها پردازش شدند.';
+      spinner.classList.add('hidden');
+      icon.className = 'w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center text-2xl shadow-inner';
+      icon.innerHTML = '🎉';
+      progressTitle.textContent = 'عملیات ثبت رزرو به پایان رسید!';
+      progressSubtitle.textContent = `گزارش: ${successCount} موفق | ${failCount} ناموفق`;
+
+      summaryBadge.innerHTML = `مجموع: <strong class="text-slate-900 dark:text-white">${total}</strong> | موفق: <strong class="text-emerald-600">${successCount}</strong> | ناموفق: <strong class="text-rose-600">${failCount}</strong>`;
+      footer.classList.remove('hidden');
+
+      // Remove successful items from cart
+      const reservedKeys = new Set(items.map(it => it.id));
+      userCart = userCart.filter(it => !reservedKeys.has(it.id));
+      updateCartBadge();
+      renderSlots();
+
+      // Refresh trips in background
+      checkAuthStatus();
+      loadBookedTrips();
+    }
+
+    function closeProgressModal(goToTrips = false) {
+      document.getElementById('reserve-progress-modal').classList.add('hidden');
+      if (goToTrips) {
+        switchTab('trips');
+      }
+    }
+
+    // Tab 2: Booked Trips
+    async function loadBookedTrips() {
+      const container = document.getElementById('trips-container');
+      container.innerHTML = '<div class="py-12 text-center text-slate-400 text-xs animate-pulse">در حال دریافت سفرهای رزروشده فعال...</div>';
+      try {
+        const res = await fetch(`${API_BASE}/api/trips`);
+        const data = await res.json();
+        if (!data.ok || !data.trips || data.trips.length === 0) {
+          container.innerHTML = '<div class="py-12 text-center text-slate-400 text-xs">شما هیچ سرویس رزروشده فعالی در سامانه ندارید.</div>';
+          document.getElementById('trips-count-badge').textContent = '۰';
+          const cancelAllCountEl = document.getElementById('cancel-all-count');
+          if (cancelAllCountEl) cancelAllCountEl.textContent = '۰';
+          currentBookedTrips = [];
+          return;
+        }
+
+        currentBookedTrips = data.trips;
+        document.getElementById('trips-count-badge').textContent = data.trips.length;
+        const cancelAllCountEl = document.getElementById('cancel-all-count');
+        if (cancelAllCountEl) cancelAllCountEl.textContent = data.trips.length;
+
+        container.innerHTML = '';
+        data.trips.forEach((trip, idx) => {
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3';
+          card.innerHTML = `
+            <div class="flex items-center space-x-3 space-x-reverse">
+              <span class="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center font-bold text-xs">${idx + 1}</span>
+              <div>
+                <div class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">${trip.info}</div>
+                <div class="text-[11px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">شناسه لغو: ${trip.r_id || '-'}</div>
+              </div>
+            </div>
+            ${trip.r_id ? `
+              <button onclick="cancelTrip('${trip.r_id}', this)" class="px-3.5 py-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold transition">
+                ❌ لغو این سفر
+              </button>
+            ` : ''}
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) {
+        container.innerHTML = '<div class="py-12 text-center text-rose-500 text-xs">خطا در دریافت سفرهای فعال</div>';
+      }
+    }
+
+    async function cancelTrip(rId, btnEl) {
+      if (!rId) return;
+      const ok = await askConfirm(
+        'لغو این سفر',
+        'آیا از لغو این رزرو در سامانه وانابوم اطمینان دارید؟',
+        'بله، لغو شود',
+        '🗑️'
+      );
+      if (!ok) return;
+
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '⏳ در حال لغو...';
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/trips/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ r_id: rId })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(data.msg || 'سرویس با موفقیت لغو شد', 'success');
+          await loadBookedTrips();
+          if (selectedStation) renderSlots();
+        } else {
+          showToast(`خطا: ${data.msg || 'عدم موفقیت در لغو'}`, 'error');
+          if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = '❌ لغو این سفر';
+          }
+        }
+      } catch (err) {
+        showToast('خطا در ارتباط با سرور', 'error');
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.innerHTML = '❌ لغو این سفر';
+        }
+      }
+    }
+
+    async function cancelAllTrips() {
+      await loadBookedTrips();
+      const tripsToCancel = currentBookedTrips.filter(t => t.r_id);
+      if (tripsToCancel.length === 0) {
+        showToast('هیچ سفری با شناسه معتبر برای لغو وجود ندارد', 'warning');
+        return;
+      }
+
+      const ok = await askConfirm(
+        'لغو تمام سفرهای فعال',
+        `⚠️ آیا مطمئن هستید که می‌خواهید تمام ${tripsToCancel.length} سفر رزروشده را در سامانه وانابوم لغو کنید؟`,
+        `بله، لغو همه (${tripsToCancel.length} مورد)`,
+        '🗑️'
+      );
+      if (!ok) return;
+
+      await executeCancellationProcess(tripsToCancel, 'در حال لغو تمام سفرهای رزروشده...');
+    }
+
+    async function executeCancellationProcess(tripsToCancel, titleText = 'در حال لغو سفرهای رزروشده...') {
+      if (!tripsToCancel || tripsToCancel.length === 0) return;
+
+      const modal = document.getElementById('reserve-progress-modal');
+      const progressTitle = document.getElementById('progress-title');
+      const progressSubtitle = document.getElementById('progress-subtitle');
+      const stepText = document.getElementById('progress-step-text');
+      const percentText = document.getElementById('progress-percent');
+      const barFill = document.getElementById('progress-bar-fill');
+      const currentAction = document.getElementById('progress-current-action');
+      const logsContainer = document.getElementById('progress-logs-container');
+      const footer = document.getElementById('progress-footer');
+      const summaryBadge = document.getElementById('progress-summary-badge');
+      const spinner = document.getElementById('progress-spinner');
+      const icon = document.getElementById('progress-icon');
+
+      modal.classList.remove('hidden');
+      footer.classList.add('hidden');
+      logsContainer.innerHTML = '';
+      spinner.classList.remove('hidden');
+      icon.className = 'w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center text-2xl shadow-inner animate-pulse';
+      icon.innerHTML = '🗑';
+      barFill.className = 'bg-gradient-to-r from-rose-500 to-amber-500 h-full rounded-full transition-all duration-300';
+      barFill.style.width = '0%';
+      progressTitle.textContent = titleText;
+      progressSubtitle.textContent = 'درخواست‌های لغو مستقیماً به سرور ترابری دانشگاه ارسال می‌شوند.';
+
+      const total = tripsToCancel.length;
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < total; i++) {
+        const trip = tripsToCancel[i];
+        const stepNum = i + 1;
+        const currentPercent = Math.round((i / total) * 100);
+
+        stepText.textContent = `مورد ${stepNum} از ${total}`;
+        percentText.textContent = `${currentPercent}٪`;
+        barFill.style.width = `${currentPercent}%`;
+        currentAction.textContent = `در حال لغو: ${trip.info}...`;
+
+        const logItem = document.createElement('div');
+        logItem.className = 'p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs flex items-center justify-between animate-pulse';
+        logItem.innerHTML = `
+          <div class="flex items-center space-x-2 space-x-reverse truncate">
+            <span class="text-slate-400 font-mono">⏳</span>
+            <span class="font-bold text-slate-800 dark:text-slate-200 truncate">${trip.info}</span>
+          </div>
+          <span class="text-[11px] text-slate-400 whitespace-nowrap">در حال لغو...</span>
+        `;
+        logsContainer.appendChild(logItem);
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/trips/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ r_id: trip.r_id })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            successCount++;
+            logItem.className = 'p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs flex items-center justify-between';
+            logItem.innerHTML = `
+              <div class="flex items-center space-x-2 space-x-reverse truncate">
+                <span class="text-emerald-600 font-bold">✅</span>
+                <span class="font-bold text-emerald-950 dark:text-emerald-300 truncate">${trip.info}</span>
+              </div>
+              <span class="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">${data.msg || 'لغو شد'}</span>
+            `;
+          } else {
+            failCount++;
+            logItem.className = 'p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs flex items-center justify-between';
+            logItem.innerHTML = `
+              <div class="flex items-center space-x-2 space-x-reverse truncate">
+                <span class="text-rose-600 font-bold">❌</span>
+                <span class="font-bold text-rose-950 dark:text-rose-300 truncate">${trip.info}</span>
+              </div>
+              <span class="text-[11px] text-rose-700 dark:text-rose-400 font-medium whitespace-nowrap">${data.msg || 'خطا در لغو'}</span>
+            `;
+          }
+        } catch (err) {
+          failCount++;
+          logItem.className = 'p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-xs flex items-center justify-between';
+          logItem.innerHTML = `
+            <div class="flex items-center space-x-2 space-x-reverse truncate">
+              <span class="text-rose-600 font-bold">❌</span>
+              <span class="font-bold text-rose-950 dark:text-rose-300 truncate">${trip.info}</span>
+            </div>
+            <span class="text-[11px] text-rose-700 dark:text-rose-400 font-medium whitespace-nowrap">خطای شبکه</span>
+          `;
+        }
+
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      // Finish state
+      stepText.textContent = `مورد ${total} از ${total}`;
+      percentText.textContent = '۱۰۰٪';
+      barFill.style.width = '100%';
+      barFill.className = 'bg-emerald-600 h-full rounded-full transition-all duration-300';
+      currentAction.textContent = 'فرآیند لغو پایان یافت.';
+      spinner.classList.add('hidden');
+      icon.className = 'w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center text-2xl shadow-inner';
+      icon.innerHTML = '🎉';
+      progressTitle.textContent = 'عملیات لغو با موفقیت انجام شد!';
+      progressSubtitle.textContent = `گزارش لغو: ${successCount} موفق | ${failCount} ناموفق`;
+      summaryBadge.innerHTML = `مجموع: <strong class="text-slate-900 dark:text-white">${total}</strong> | لغو موفق: <strong class="text-emerald-600">${successCount}</strong> | ناموفق: <strong class="text-rose-600">${failCount}</strong>`;
+      footer.classList.remove('hidden');
+
+      await loadBookedTrips();
+      if (selectedStation) renderSlots();
+    }
+
+    // Tab 3: Favorites
+    async function loadFavorites() {
+      try {
+        const res = await fetch(`${API_BASE}/api/favorites`);
+        const data = await res.json();
+        userFavorites = data.favorites || [];
+
+        const goList = document.getElementById('fav-go-list');
+        const retList = document.getElementById('fav-return-list');
+
+        const goFavs = userFavorites.filter(f => f.station_type === 'go');
+        const retFavs = userFavorites.filter(f => f.station_type === 'return');
+
+        renderFavBlock(goList, goFavs, 'go');
+        renderFavBlock(retList, retFavs, 'return');
+        renderFavoriteQuickBar();
+      } catch (err) {
+        console.error('Fav load error:', err);
+      }
+    }
+
+    function renderFavBlock(container, items, type) {
+      container.innerHTML = '';
+      if (items.length === 0) {
+        container.innerHTML = `<div class="py-6 text-center text-slate-400 text-xs">هیچ ایستگاه ${type === 'go' ? 'رفت' : 'برگشت'} نشان‌شده‌ای ندارید.</div>`;
+        return;
+      }
+      items.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs';
+        row.innerHTML = `
+          <div>
+            <div class="font-bold text-slate-800 dark:text-slate-100">${f.station_name}</div>
+            ${f.route_name ? `<div class="text-[11px] text-slate-500 dark:text-slate-400">مسیر: ${f.route_name}</div>` : ''}
+          </div>
+          <button onclick="removeFavorite('${f.station_type}', '${f.station_id}')" class="text-rose-500 hover:text-rose-700 p-1 font-bold">
+            ❌ حذف
+          </button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    async function toggleFavorite(type, id, name, route) {
+      const isFav = userFavorites.some(f => f.station_type === type && f.station_id === id);
+      if (isFav) {
+        await removeFavorite(type, id);
+      } else {
+        await addFavorite(type, id, name, route);
+      }
+    }
+
+    async function addFavorite(type, id, name, route) {
+      try {
+        const res = await fetch(`${API_BASE}/api/favorites/add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ station_type: type, station_id: id, station_name: name, route_name: route })
+        });
+        const data = await res.json();
+        showToast(data.msg, 'success');
+        await loadFavorites();
+        if (allStations[currentDirection]) renderStations(allStations[currentDirection]);
+      } catch (err) {
+        showToast('خطا در افزودن به علاقه‌مندی‌ها', 'error');
+      }
+    }
+
+    async function removeFavorite(type, id) {
+      try {
+        const res = await fetch(`${API_BASE}/api/favorites/remove`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ station_type: type, station_id: id })
+        });
+        const data = await res.json();
+        showToast(data.msg, 'info');
+        await loadFavorites();
+        if (allStations[currentDirection]) renderStations(allStations[currentDirection]);
+      } catch (err) {
+        showToast('خطا در حذف از علاقه‌مندی‌ها', 'error');
+      }
+    }
+
+    function toggleStarCurrentStation() {
+      if (!selectedStation) return;
+      toggleFavorite(currentDirection, selectedStation.id, selectedStation.station_name, selectedStation.route_name);
+    }
+
+    // Modal Add Fav
+    function openAddFavModal() {
+      document.getElementById('add-fav-modal').classList.remove('hidden');
+      loadAddFavStations();
+    }
+    function closeAddFavModal() {
+      document.getElementById('add-fav-modal').classList.add('hidden');
+    }
+    async function loadAddFavStations() {
+      const type = document.getElementById('add-fav-type').value;
+      const listContainer = document.getElementById('add-fav-stations-list');
+      listContainer.innerHTML = '<div class="text-center py-4 text-xs text-slate-400">در حال دریافت ایستگاه‌ها...</div>';
+      if (!allStations[type] || allStations[type].length === 0) {
+        const res = await fetch(`${API_BASE}/api/reserve/stations?type=${type}`);
+        const data = await res.json();
+        allStations[type] = data.stations || [];
+      }
+      renderAddFavStations(allStations[type]);
+    }
+    function filterAddFavStations() {
+      const q = document.getElementById('add-fav-search').value.toLowerCase().trim();
+      const type = document.getElementById('add-fav-type').value;
+      const list = allStations[type] || [];
+      const filtered = q ? list.filter(s => s.name.toLowerCase().includes(q)) : list;
+      renderAddFavStations(filtered);
+    }
+    function renderAddFavStations(stations) {
+      const listContainer = document.getElementById('add-fav-stations-list');
+      listContainer.innerHTML = '';
+      stations.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'p-2 hover:bg-white dark:hover:bg-slate-800 rounded-lg cursor-pointer text-xs border border-transparent hover:border-slate-200 dark:hover:border-slate-700 flex justify-between items-center';
+        item.innerHTML = `
+          <span class="text-slate-800 dark:text-slate-200">${s.name}</span>
+          <span class="text-blue-600 dark:text-blue-400 font-bold">➕ افزودن</span>
+        `;
+        item.onclick = async () => {
+          const type = document.getElementById('add-fav-type').value;
+          await addFavorite(type, s.id, s.station_name, s.route_name);
+          closeAddFavModal();
+        };
+        listContainer.appendChild(item);
+      });
+    }
+
+    // Tab 4: Auto Settings
+    const WEEKDAYS = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه"];
+
+    async function loadAutoSettings() {
+      try {
+        const res = await fetch(`${API_BASE}/api/settings/auto`);
+        const data = await res.json();
+        autoSettings = data.settings || {};
+
+        document.getElementById('auto-master-toggle').checked = !!autoSettings.enabled;
+        document.getElementById('auto-target-time').value = autoSettings.target_time || '00:01';
+
+        const logsEl = document.getElementById('auto-logs-container');
+        if (data.recent_logs && data.recent_logs.length > 0) {
+          logsEl.innerHTML = data.recent_logs.map(l => `<div>• ${l.text}</div>`).join('');
+        }
+
+        renderWeeklyMatrix();
+      } catch (err) {
+        showToast('خطا در دریافت تنظیمات خودکار', 'error');
+      }
+    }
+
+    async function renderWeeklyMatrix() {
+      const container = document.getElementById('weekly-days-container');
+      container.innerHTML = '';
+
+      if (allStations.go.length === 0) {
+        const res = await fetch(`${API_BASE}/api/reserve/stations?type=go`);
+        const d = await res.json();
+        allStations.go = d.stations || [];
+      }
+      if (allStations.return.length === 0) {
+        const res2 = await fetch(`${API_BASE}/api/reserve/stations?type=return`);
+        const d2 = await res2.json();
+        allStations.return = d2.stations || [];
+      }
+
+      const daily = autoSettings.daily_schedules || {};
+
+      WEEKDAYS.forEach(day => {
+        const cfg = daily[day] || { enabled: true, go_station_id: '', go_time: '', return_station_id: '', return_time: '' };
+        const card = document.createElement('div');
+        card.className = 'bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm';
+        card.innerHTML = `
+          <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
+            <div class="flex items-center space-x-2 space-x-reverse">
+              <span class="text-base">🗓</span>
+              <h4 class="text-sm font-bold text-slate-800 dark:text-slate-100">برنامه اختصاصی روز «${day}»</h4>
+            </div>
+            <label class="flex items-center cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <span class="ml-2">فعال برای این روز:</span>
+              <input type="checkbox" id="day-en-${day}" ${cfg.enabled ? 'checked' : ''} class="w-4 h-4 text-blue-600 rounded">
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Go Service -->
+            <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <label class="text-xs font-bold text-emerald-700 dark:text-emerald-400 block mb-2">🟢 سرویس رفت (به کمالوند):</label>
+              <div class="space-y-2">
+                <select id="day-go-st-${day}" class="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-medium">
+                  <option value="">-- انتخاب ایستگاه رفت --</option>
+                  ${allStations.go.map(s => `<option value="${s.id}" ${cfg.go_station_id === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                </select>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-slate-500 dark:text-slate-400">ساعت:</span>
+                  <input type="text" id="day-go-t-${day}" value="${cfg.go_time || ''}" placeholder="07:30" class="w-24 px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-mono text-center">
+                </div>
+              </div>
+            </div>
+
+            <!-- Return Service -->
+            <div class="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <label class="text-xs font-bold text-blue-700 dark:text-blue-400 block mb-2">🔵 سرویس برگشت (از کمالوند):</label>
+              <div class="space-y-2">
+                <select id="day-ret-st-${day}" class="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-medium">
+                  <option value="">-- انتخاب ایستگاه برگشت --</option>
+                  ${allStations.return.map(s => `<option value="${s.id}" ${cfg.return_station_id === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                </select>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-slate-500 dark:text-slate-400">ساعت:</span>
+                  <input type="text" id="day-ret-t-${day}" value="${cfg.return_time || ''}" placeholder="16:00" class="w-24 px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-mono text-center">
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function saveAutoSettings() {
+      const enabled = document.getElementById('auto-master-toggle').checked;
+      const targetTime = document.getElementById('auto-target-time').value || '00:01';
+
+      const daily = {};
+      WEEKDAYS.forEach(day => {
+        const en = document.getElementById(`day-en-${day}`)?.checked ?? true;
+        const goSt = document.getElementById(`day-go-st-${day}`)?.value || '';
+        const goT = document.getElementById(`day-go-t-${day}`)?.value.trim() || '';
+        const retSt = document.getElementById(`day-ret-st-${day}`)?.value || '';
+        const retT = document.getElementById(`day-ret-t-${day}`)?.value.trim() || '';
+
+        const goInfo = allStations.go.find(s => s.id === goSt);
+        const retInfo = allStations.return.find(s => s.id === retSt);
+
+        daily[day] = {
+          enabled: en,
+          go_station_id: goSt,
+          go_station_name: goInfo ? goInfo.station_name : '',
+          go_time: goT,
+          return_station_id: retSt,
+          return_station_name: retInfo ? retInfo.station_name : '',
+          return_time: retT
+        };
+      });
+
+      const payload = {
+        enabled: enabled,
+        target_time: targetTime,
+        daily_schedules: daily
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/api/settings/auto`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        showToast(data.msg, 'success');
+      } catch (err) {
+        showToast('خطا در ذخیره تنظیمات خودکار', 'error');
+      }
+    }
+
+    async function testAutoReserveNow() {
+      const ok = await askConfirm(
+        'اجرای آزمایشی رزرو خودکار',
+        'آیا مایل به اجرای آزمایشی رزرو خودکار بر اساس پلن روز بعد هستید؟',
+        'شروع اجرای آزمایشی',
+        '⚡'
+      );
+      if (!ok) return;
+      showToast('در حال اجرای آزمایشی رزرو خودکار...', 'info');
+      try {
+        const res = await fetch(`${API_BASE}/api/settings/auto/test`, { method: 'POST' });
+        const data = await res.json();
+        await askConfirm('نتیجه تست رزرو خودکار', data.report || 'عملیات تست به پایان رسید.', 'بستن گزارش', '📋');
+        loadAutoSettings();
+      } catch (err) {
+        showToast('خطا در اجرای تست خودکار', 'error');
+      }
+    }
+
+    // Login Modal
+    function openLoginModal() {
+      document.getElementById('login-modal').classList.remove('hidden');
+      backToMobileStep();
+    }
+    function closeLoginModal() {
+      document.getElementById('login-modal').classList.add('hidden');
+    }
+    function backToMobileStep() {
+      document.getElementById('login-step-mobile').classList.remove('hidden');
+      document.getElementById('login-step-code').classList.add('hidden');
+    }
+
+    async function submitRequestOtp() {
+      const phone = document.getElementById('login-phone-input').value.trim();
+      if (!phone) {
+        showToast('لطفاً شماره موبایل را وارد کنید', 'warning');
+        return;
+      }
+      const btn = document.getElementById('request-otp-btn');
+      btn.disabled = true;
+      btn.innerHTML = '⏳ در حال ارسال پیامک...';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/request-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: phone })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          pendingOtpQuery = data.query;
+          document.getElementById('target-phone-label').textContent = phone;
+          document.getElementById('login-step-mobile').classList.add('hidden');
+          document.getElementById('login-step-code').classList.remove('hidden');
+          showToast(data.msg, 'success');
+        } else {
+          showToast(`خطا: ${data.msg}`, 'error');
+        }
+      } catch (err) {
+        showToast('خطای ارتباط با سرور', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'دریافت کد تایید پیامکی (OTP)';
+      }
+    }
+
+    async function submitVerifyOtp() {
+      const code = document.getElementById('login-code-input').value.trim();
+      const phone = document.getElementById('login-phone-input').value.trim();
+      if (!code || code.length < 4) {
+        showToast('لطفاً کد تایید معتبر وارد کنید', 'warning');
+        return;
+      }
+      const btn = document.getElementById('verify-otp-btn');
+      btn.disabled = true;
+      btn.innerHTML = '⏳ در حال بررسی کد...';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: pendingOtpQuery, code: code, mobile: phone })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(data.msg, 'success');
+          closeLoginModal();
+          checkAuthStatus();
+          loadReserveDays();
+        } else {
+          showToast(`خطا: ${data.msg}`, 'error');
+        }
+      } catch (err) {
+        showToast('خطا در تایید کد', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'تایید و ورود به حساب';
+      }
+    }
+
+    // Start App
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>

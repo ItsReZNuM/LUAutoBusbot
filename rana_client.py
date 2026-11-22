@@ -32,6 +32,7 @@ class RanaClient:
 
         if rana_session:
             self.session.cookies.set("rana_session", rana_session, domain="rana-app.vanaboom.ir")
+            self.session.cookies.set("rana_app_session", rana_session, domain="rana-app.vanaboom.ir")
         elif telegram_id:
             self.load_user_session()
 
@@ -46,12 +47,13 @@ class RanaClient:
             session_cookie = user.get("rana_session")
             if session_cookie:
                 self.session.cookies.set("rana_session", session_cookie, domain="rana-app.vanaboom.ir")
+                self.session.cookies.set("rana_app_session", session_cookie, domain="rana-app.vanaboom.ir")
 
     def save_user_session(self):
         if not self.telegram_id:
             return
         cookies = self.session.cookies.get_dict()
-        session_cookie = cookies.get("rana_session", "")
+        session_cookie = cookies.get("rana_app_session") or cookies.get("rana_session", "")
         if session_cookie:
             database.save_user_session(
                 telegram_id=self.telegram_id,
@@ -156,7 +158,8 @@ class RanaClient:
 
             r_post = self.session.post(f"{self.BASE_URL}/users/auth/code", data=payload, headers=headers, timeout=12)
 
-            if "rana_session" in self.session.cookies.get_dict():
+            cookies_dict = self.session.cookies.get_dict()
+            if "rana_session" in cookies_dict or "rana_app_session" in cookies_dict:
                 self.check_auth()
                 self.save_user_session()
                 return True, "ورود با موفقیت انجام شد!"
@@ -200,26 +203,33 @@ class RanaClient:
                 })
 
             booked_trips = []
-            for pane in soup.select("#ssm_reserve_tab_body .tab-pane"):
-                pane_id = pane.get("id", "")
-                slug = pane_id.replace("ssm_reserve_content_", "")
-                alerts = pane.select(".d-flex.justify-content-center.align-items-center.my-1")
-                for box in alerts:
-                    alert = box.select_one(".alert-primary.alert-pro")
-                    cancel_btn = box.select_one("button[onclick*='ssm_reserve_date_cancel']")
-                    r_id = None
-                    if cancel_btn:
-                        m = re.search(r"ssm_reserve_date_cancel\('(\d+)'\)", cancel_btn.get("onclick", ""))
-                        if m:
-                            r_id = m.group(1)
+            cancel_buttons = soup.find_all(lambda t: t.name == "button" and "ssm_reserve_date_cancel" in str(t.get("onclick", "")))
+            for btn in cancel_buttons:
+                onclick = btn.get("onclick", "")
+                m = re.search(r"ssm_reserve_date_cancel\(.*?(\d+)", onclick)
+                r_id = m.group(1) if m else None
 
-                    if alert:
-                        text = " ".join(alert.text.split())
-                        booked_trips.append({
-                            "slug": slug,
-                            "info": text,
-                            "r_id": r_id
-                        })
+                pane = btn.find_parent(class_="tab-pane")
+                slug = ""
+                if pane and pane.get("id"):
+                    slug = pane.get("id").replace("ssm_reserve_content_", "")
+                if not slug and tabs:
+                    slug = tabs[0]["slug"]
+
+                container = btn.parent
+                alert = container.select_one(".alert-primary") if container else None
+                if alert:
+                    text = " ".join(alert.text.split())
+                elif container:
+                    text = " ".join(container.text.split()).replace("لغو رزرو", "").replace("پرداخت شده", "").strip()
+                else:
+                    text = "سرویس رزروشده"
+
+                booked_trips.append({
+                    "slug": slug,
+                    "info": text,
+                    "r_id": r_id
+                })
 
             return True, "موفق", tabs, booked_trips
         except Exception as e:
@@ -403,11 +413,14 @@ class RanaClient:
             r = self.session.post(url, data=payload, headers=headers, timeout=12)
             try:
                 res = r.json()
-                if res.get("status") or res.get("data"):
-                    return True, "سرویس با موفقیت لغو شد."
+                if res.get("success") or res.get("status") or (res.get("data") and res.get("data") != {}) or "لغو شد" in str(res):
+                    msg = res.get("message") or "سرویس با موفقیت لغو شد."
+                    return True, msg
                 msg = res.get("message") or res.get("data", {}).get("message") or "لغو نشد"
                 return False, msg
             except Exception:
-                return True, "درخواست لغو ارسال شد."
+                if r.status_code == 200:
+                    return True, "درخواست لغو با موفقیت انجام شد."
+                return False, f"کد وضعیت سرور: {r.status_code}"
         except Exception as e:
             return False, f"خطا در لغو رزرو: {e}"
